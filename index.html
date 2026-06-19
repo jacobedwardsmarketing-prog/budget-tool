@@ -165,6 +165,27 @@
 
 
 
+
+  <div class="modal-backdrop" id="dashboardEditModal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <p class="kicker" id="dashboardEditKicker">Dashboard</p>
+          <h2 id="dashboardEditTitle">Edit Amount</h2>
+        </div>
+        <button class="modal-close" id="closeDashboardEditModal">×</button>
+      </div>
+
+      <input id="dashboardEditType" type="hidden" />
+      <input id="dashboardEditId" type="hidden" />
+
+      <label class="field-label" id="dashboardEditAmountLabel">Amount</label>
+      <input id="dashboardEditAmountInput" class="field" type="number" inputmode="decimal" placeholder="0.00" />
+
+      <button class="modal-primary" id="saveDashboardEditBtn">Save Amount</button>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="actionModal">
     <div class="modal-card">
       <div class="modal-head">
