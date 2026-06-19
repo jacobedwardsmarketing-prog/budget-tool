@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Personal Budget</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app">
+    <section id="dashboard" class="screen active">
+      <div class="hero-card">
+        <p class="kicker">Cash Position</p>
+        <h1 id="statusTitle">ON TRACK</h1>
+        <div class="money-glow" id="safeToSpend">$342.17</div>
+        <p class="caption">Available after bills, spending, and carryover</p>
+      </div>
+
+      <div class="grid">
+        <div class="stat-card">
+          <span>Current Balance</span>
+          <strong id="currentBalance">$1,287.00</strong>
+        </div>
+        <div class="stat-card">
+          <span>Expected End</span>
+          <strong id="expectedEnd">$214.00</strong>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Upcoming Bills</h2>
+          <span>Next 14 days</span>
+        </div>
+        <div id="billList" class="list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Variable Spending</h2>
+          <span>Remaining</span>
+        </div>
+        <div id="categoryList" class="list"></div>
+      </div>
+    </section>
+
+    <section id="cycle" class="screen">
+      <div class="screen-title">
+        <p class="kicker">Cycle</p>
+        <h1>June 18 – July 2</h1>
+      </div>
+      <div class="panel">
+        <h2>Generated Budget</h2>
+        <div id="cycleSummary" class="money-table"></div>
+      </div>
+      <button class="gold-btn" id="newCycleBtn">Start New Cycle</button>
+    </section>
+
+    <section id="spending" class="screen">
+      <div class="screen-title">
+        <p class="kicker">Ledger</p>
+        <h1>Spending</h1>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Transactions</h2>
+          <span>Newest first</span>
+        </div>
+        <div id="transactionList" class="list"></div>
+      </div>
+    </section>
+
+    <section id="setup" class="screen">
+      <div class="screen-title">
+        <p class="kicker">Rules</p>
+        <h1>Setup</h1>
+      </div>
+      <div class="setup-actions">
+        <button class="setup-action" id="addMonthlyExpenseBtn">
+          <span class="setup-icon">📆</span>
+          <span>
+            <strong>Monthly Expense</strong>
+            <small>Bills with due dates</small>
+          </span>
+        </button>
+
+        <button class="setup-action" id="addFixedExpenseBtn">
+          <span class="setup-icon">🔒</span>
+          <span>
+            <strong>Bi-Weekly Fixed</strong>
+            <small>Same every cycle</small>
+          </span>
+        </button>
+
+        <button class="setup-action" id="addVariableExpenseBtn">
+          <span class="setup-icon">🎲</span>
+          <span>
+            <strong>Bi-Weekly Variable</strong>
+            <small>Flexible spending</small>
+          </span>
+        </button>
+
+        <button class="setup-action gold-action" id="setCarryoverBtn">
+          <span class="setup-icon">🎯</span>
+          <span>
+            <strong>Savings Goal Per Cycle</strong>
+            <small>Target end balance</small>
+          </span>
+        </button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Monthly Expenses</h2>
+          <span>Due by day</span>
+        </div>
+        <div id="monthlyExpenseList" class="list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Bi-Weekly Fixed</h2>
+          <span>Every cycle</span>
+        </div>
+        <div id="fixedExpenseList" class="list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Bi-Weekly Variable</h2>
+          <span>Flexible budgets</span>
+        </div>
+        <div id="variableExpenseList" class="list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Savings Goal Per Cycle</h2>
+          <span>Target end balance</span>
+        </div>
+        <div id="carryoverTargetDisplay" class="list"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="quick-menu" id="quickMenu">
+    <button data-action="spend">Spend Money</button>
+    <button data-action="income">Add Income</button>
+    <button data-action="bill">Mark Bill Paid</button>
+    <button data-action="balance">Correct Balance</button>
+    <button data-action="cycle">New Cycle</button>
+  </div>
+
+
+
+  <div class="modal-backdrop" id="setupModal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <p class="kicker" id="setupModalKicker">Setup</p>
+          <h2 id="setupModalTitle">Edit Item</h2>
+        </div>
+        <button class="modal-close" id="closeSetupModal">×</button>
+      </div>
+
+      <input id="setupEditMode" type="hidden" />
+      <input id="setupEditType" type="hidden" />
+      <input id="setupEditId" type="hidden" />
+
+      <label class="field-label">Name</label>
+      <input id="setupNameInput" class="field" type="text" placeholder="Example: Phone" />
+
+      <label class="field-label">Amount</label>
+      <input id="setupAmountInput" class="field" type="number" inputmode="decimal" placeholder="0.00" />
+
+      <div id="setupDueDayWrap">
+        <label class="field-label">Due Day</label>
+        <input id="setupDueDayInput" class="field" type="number" inputmode="numeric" placeholder="1-31" />
+      </div>
+
+      <div class="modal-actions">
+        <button class="modal-danger" id="deleteSetupItemBtn">Delete</button>
+        <button class="modal-primary" id="saveSetupItemBtn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="spendModal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <p class="kicker">Quick Action</p>
+          <h2>Spend Money</h2>
+        </div>
+        <button class="modal-close" id="closeSpendModal">×</button>
+      </div>
+
+      <label class="field-label">Category</label>
+      <select id="spendCategorySelect" class="field"></select>
+
+      <label class="field-label">Amount</label>
+      <input id="spendAmountInput" class="field" type="number" inputmode="decimal" placeholder="0.00" />
+
+      <label class="field-label">Note</label>
+      <input id="spendNoteInput" class="field" type="text" placeholder="Optional" />
+
+      <button class="modal-primary" id="saveSpendBtn">Save Spend</button>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="tab active" data-tab="dashboard">🏠<span>Dashboard</span></button>
+    <button class="tab" data-tab="cycle">📅<span>Cycle</span></button>
+    <button class="fab" id="fab" aria-label="Quick actions">$</button>
+    <button class="tab" data-tab="spending">💸<span>Spending</span></button>
+    <button class="tab" data-tab="setup">⚙️<span>Setup</span></button>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>
