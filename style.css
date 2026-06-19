@@ -438,8 +438,32 @@ select.field{
 }
 
 
-/* Phase 11 — clearer cycle math */
-.money-row span small{
+
+/* Cycle math cleanup — patched from stable Phase 10 */
+.cycle-equation-card{
+  padding:14px;
+  margin-bottom:10px;
+  border-radius:18px;
+  background:rgba(255,255,255,.055);
+  border:1px solid rgba(255,255,255,.075);
+}
+
+.cycle-equation-title{
+  color:var(--gold);
+  font-weight:1000;
+  text-transform:uppercase;
+  letter-spacing:1px;
+  font-size:12px;
+  margin-bottom:5px;
+}
+
+.cycle-equation-copy{
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.35;
+}
+
+.money-row.cycle-math-row span small{
   display:block;
   color:var(--muted);
   font-size:12px;
@@ -448,14 +472,29 @@ select.field{
   line-height:1.25;
 }
 
-.money-row.total-row{
+.money-row.cycle-math-row{
+  align-items:flex-start;
+}
+
+.money-row.cycle-math-row.total,
+.money-row.cycle-math-row.danger{
   margin-top:6px;
-  padding-top:17px;
+  padding-top:18px;
   border-top:1px solid rgba(246,200,95,.28);
 }
 
-.money-row.total-row span,
-.money-row.total-row strong{
+.money-row.cycle-math-row.total span,
+.money-row.cycle-math-row.total strong{
   color:var(--gold);
   font-weight:1000;
+}
+
+.money-row.cycle-math-row.danger span,
+.money-row.cycle-math-row.danger strong{
+  color:var(--red);
+  font-weight:1000;
+}
+
+.money-row.cycle-math-row.negative strong{
+  color:var(--muted);
 }
