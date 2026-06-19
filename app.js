@@ -64,7 +64,13 @@ function resetData() {
   localStorage.removeItem(STORAGE_KEY);
   appData = cloneDefaultData();
   saveData();
-  renderAll();
+  document.getElementById("closeDashboardEditModal").addEventListener("click", closeDashboardEditModal);
+document.getElementById("saveDashboardEditBtn").addEventListener("click", saveDashboardEditFromModal);
+document.getElementById("dashboardEditModal").addEventListener("click", event => {
+  if (event.target.id === "dashboardEditModal") closeDashboardEditModal();
+});
+
+renderAll();
 }
 
 function ensureRules() {
@@ -272,7 +278,7 @@ function renderDashboard() {
 
   document.getElementById("billList").innerHTML = (appData.bills || []).length
     ? appData.bills.map(b => `
-      <div class="item bill-item ${b.paid ? "bill-paid" : ""}" data-id="${escapeHTML(b.id)}">
+      <div class="item bill-item dashboard-editable ${b.paid ? "bill-paid" : ""}" data-id="${escapeHTML(b.id)}">
         <div><strong>${escapeHTML(b.name)}</strong><small>${escapeHTML(b.date)} · ${b.paid ? "Paid" : "Unpaid"}</small></div>
         <div class="amount">${money(b.amount)}</div>
       </div>
@@ -280,20 +286,24 @@ function renderDashboard() {
     : `<div class="item"><div><strong>No bills loaded</strong><small>Add expenses in Setup, then start a cycle</small></div></div>`;
 
   document.querySelectorAll(".bill-item").forEach(row => {
-    row.addEventListener("click", () => openBillModal(row.dataset.id));
+    row.addEventListener("click", () => openDashboardBillEditModal(row.dataset.id));
   });
 
   document.getElementById("categoryList").innerHTML = (appData.categories || []).length
     ? appData.categories.map(c => {
       const percent = c.budget > 0 ? Math.round((Number(c.remaining || 0) / Number(c.budget || 0)) * 100) : 0;
       return `
-        <div class="item">
+        <div class="item category-item dashboard-editable" data-id="${escapeHTML(c.id)}">
           <div><strong>${escapeHTML(c.name)}</strong><small>${money(c.remaining)} left of ${money(c.budget)}</small></div>
           <div class="amount">${percent}%</div>
         </div>
       `;
     }).join("")
     : `<div class="item"><div><strong>No categories loaded</strong><small>Add variable budgets in Setup, then start a cycle</small></div></div>`;
+
+  document.querySelectorAll(".category-item").forEach(row => {
+    row.addEventListener("click", () => openDashboardCategoryEditModal(row.dataset.id));
+  });
 }
 
 function renderCycle() {
@@ -881,6 +891,95 @@ function openBillPickerFromMenu() {
       return false;
     }
   });
+}
+
+
+/* Dashboard Amount Editing */
+function openDashboardBillEditModal(billId) {
+  const bill = (appData.bills || []).find(b => b.id === billId);
+  if (!bill) return;
+
+  document.getElementById("dashboardEditType").value = "bill";
+  document.getElementById("dashboardEditId").value = bill.id;
+  document.getElementById("dashboardEditKicker").textContent = "Bill";
+  document.getElementById("dashboardEditTitle").textContent = bill.name;
+  document.getElementById("dashboardEditAmountLabel").textContent = "Bill Amount";
+  document.getElementById("dashboardEditAmountInput").value = Number(bill.amount || 0);
+  document.getElementById("dashboardEditModal").classList.add("open");
+  setTimeout(() => document.getElementById("dashboardEditAmountInput").focus(), 80);
+}
+
+function openDashboardCategoryEditModal(categoryId) {
+  const category = (appData.categories || []).find(c => c.id === categoryId);
+  if (!category) return;
+
+  document.getElementById("dashboardEditType").value = "category";
+  document.getElementById("dashboardEditId").value = category.id;
+  document.getElementById("dashboardEditKicker").textContent = "Spending Budget";
+  document.getElementById("dashboardEditTitle").textContent = category.name;
+  document.getElementById("dashboardEditAmountLabel").textContent = "Remaining Amount";
+  document.getElementById("dashboardEditAmountInput").value = Number(category.remaining || 0);
+  document.getElementById("dashboardEditModal").classList.add("open");
+  setTimeout(() => document.getElementById("dashboardEditAmountInput").focus(), 80);
+}
+
+function closeDashboardEditModal() {
+  document.getElementById("dashboardEditModal").classList.remove("open");
+}
+
+function saveDashboardEditFromModal() {
+  const type = document.getElementById("dashboardEditType").value;
+  const id = document.getElementById("dashboardEditId").value;
+  const amount = Number(document.getElementById("dashboardEditAmountInput").value);
+
+  if (Number.isNaN(amount) || amount < 0) {
+    showNotice("Invalid Amount", "Enter a valid amount.");
+    return;
+  }
+
+  if (type === "bill") {
+    const bill = (appData.bills || []).find(b => b.id === id);
+    if (!bill) return;
+
+    bill.amount = amount;
+
+    const rule = (appData.rules?.monthlyExpenses || []).find(r => r.id === bill.ruleId)
+      || (appData.rules?.biWeeklyFixed || []).find(r => r.id === bill.ruleId);
+
+    if (rule) rule.amount = amount;
+
+    appData.transactions.push({
+      id: crypto.randomUUID(),
+      label: "Adjusted Bill",
+      note: `${bill.name} amount set to ${money(amount)}`,
+      amount: 0,
+      date: new Date().toISOString()
+    });
+  }
+
+  if (type === "category") {
+    const category = (appData.categories || []).find(c => c.id === id);
+    if (!category) return;
+
+    const spent = Number(category.budget || 0) - Number(category.remaining || 0);
+    category.remaining = amount;
+    category.budget = amount + Math.max(0, spent);
+
+    const rule = (appData.rules?.biWeeklyVariable || []).find(r => r.id === category.ruleId);
+    if (rule) rule.amount = category.budget;
+
+    appData.transactions.push({
+      id: crypto.randomUUID(),
+      label: "Adjusted Budget",
+      note: `${category.name} remaining set to ${money(amount)}`,
+      amount: 0,
+      date: new Date().toISOString()
+    });
+  }
+
+  saveData();
+  renderAll();
+  closeDashboardEditModal();
 }
 
 /* Correct Balance */
