@@ -334,52 +334,67 @@ function renderCycle() {
     .filter(b => !b.paid)
     .reduce((sum, b) => sum + Number(b.amount || 0), 0);
 
-  const remainingCategoriesTotal = (appData.categories || [])
+  const remainingBudgetsTotal = (appData.categories || [])
     .reduce((sum, c) => sum + Number(c.remaining || 0), 0);
 
   const savingsGoal = Number(appData.cycle?.requiredEndBalance || 0);
-  const currentCash = Number(appData.currentBalance || 0);
-  const safe = calculateSafeToSpend();
+  const currentBalance = Number(appData.currentBalance || 0);
+  const safeToSpend = calculateSafeToSpend();
+
+  document.querySelector("#cycle h1").textContent =
+    `${appData.cycle?.startDate || "No cycle"} – ${appData.cycle?.endDate || "Not started"}`;
 
   const rows = [
     {
       label: "Current Account Balance",
-      value: currentCash,
-      note: "Actual cash available right now"
+      value: currentBalance,
+      note: "Actual cash in the account right now",
+      type: "positive"
     },
     {
-      label: "Unpaid Bills Still Due",
+      label: "Unpaid Bills",
       value: -unpaidBillsTotal,
-      note: "Bills not marked paid yet"
+      note: "Bills still due this cycle",
+      type: "negative"
     },
     {
       label: "Remaining Spending Budgets",
-      value: -remainingCategoriesTotal,
-      note: "Category money reserved for this cycle"
+      value: -remainingBudgetsTotal,
+      note: "Category money still reserved",
+      type: "negative"
     },
     {
       label: "Savings Goal Per Cycle",
       value: -savingsGoal,
-      note: "Target money left at the end"
+      note: "Target balance to preserve",
+      type: "negative"
     },
     {
       label: "Safe To Spend",
-      value: safe,
-      note: "Money not already spoken for"
+      value: safeToSpend,
+      note: "Money not already spoken for",
+      type: safeToSpend < 0 ? "danger" : "total"
     }
   ];
 
-  document.querySelector("#cycle h1").textContent = `${appData.cycle?.startDate || "No cycle"} – ${appData.cycle?.endDate || "Not started"}`;
-
-  document.getElementById("cycleSummary").innerHTML = rows.map((r, index) => `
-    <div class="money-row ${index === rows.length - 1 ? "total-row" : ""}">
-      <span>
-        ${r.label}
-        <small>${r.note}</small>
-      </span>
-      <strong>${money(r.value)}</strong>
+  document.getElementById("cycleSummary").innerHTML = `
+    <div class="cycle-equation-card">
+      <div class="cycle-equation-title">Budget Equation</div>
+      <div class="cycle-equation-copy">
+        Balance − unpaid bills − remaining budgets − savings goal = safe to spend.
+      </div>
     </div>
-  `).join("");
+
+    ${rows.map(row => `
+      <div class="money-row cycle-math-row ${row.type}">
+        <span>
+          ${row.label}
+          <small>${row.note}</small>
+        </span>
+        <strong>${money(row.value)}</strong>
+      </div>
+    `).join("")}
+  `;
 }
 
 function renderTransactions() {
