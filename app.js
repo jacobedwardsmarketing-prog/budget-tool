@@ -345,7 +345,7 @@ function renderCycle() {
     {
       label: "Current Account Balance",
       value: currentCash,
-      note: "What is actually in the account right now"
+      note: "Actual cash available right now"
     },
     {
       label: "Unpaid Bills Still Due",
@@ -355,7 +355,7 @@ function renderCycle() {
     {
       label: "Remaining Spending Budgets",
       value: -remainingCategoriesTotal,
-      note: "Category money still reserved for this cycle"
+      note: "Category money reserved for this cycle"
     },
     {
       label: "Savings Goal Per Cycle",
