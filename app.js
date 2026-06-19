@@ -3,8 +3,6 @@ const STORAGE_KEY = "budgetAppDataV2";
 const defaultData = {
   version: 2,
   currentBalance: 0,
-  safeToSpend: 0,
-  expectedEnd: 0,
   cycle: {
     startDate: "No cycle",
     endDate: "Not started",
@@ -22,6 +20,7 @@ const defaultData = {
 };
 
 let appData = loadData();
+let actionModalState = null;
 
 function cloneDefaultData() {
   return JSON.parse(JSON.stringify(defaultData));
@@ -29,29 +28,31 @@ function cloneDefaultData() {
 
 function loadData() {
   const saved = localStorage.getItem(STORAGE_KEY);
-  if (!saved) {
-    const fresh = cloneDefaultData();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
-    return fresh;
-  }
+  let data;
 
   try {
-    const parsed = JSON.parse(saved);
-    if (!parsed || parsed.version !== 2) {
-      const fresh = cloneDefaultData();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
-      return fresh;
-    }
-    if (!parsed.rules) parsed.rules = { monthlyExpenses: [], biWeeklyFixed: [], biWeeklyVariable: [] };
-    if (!parsed.bills) parsed.bills = [];
-    if (!parsed.categories) parsed.categories = [];
-    if (!parsed.transactions) parsed.transactions = [];
-    return parsed;
+    data = saved ? JSON.parse(saved) : cloneDefaultData();
   } catch {
-    const fresh = cloneDefaultData();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
-    return fresh;
+    data = cloneDefaultData();
   }
+
+  if (!data || data.version !== 2) data = cloneDefaultData();
+
+  data.currentBalance = Number(data.currentBalance || 0);
+  if (!data.cycle) data.cycle = cloneDefaultData().cycle;
+  if (typeof data.cycle.requiredEndBalance === "undefined") data.cycle.requiredEndBalance = 0;
+
+  if (!data.rules) data.rules = {};
+  if (!Array.isArray(data.rules.monthlyExpenses)) data.rules.monthlyExpenses = [];
+  if (!Array.isArray(data.rules.biWeeklyFixed)) data.rules.biWeeklyFixed = [];
+  if (!Array.isArray(data.rules.biWeeklyVariable)) data.rules.biWeeklyVariable = [];
+
+  if (!Array.isArray(data.bills)) data.bills = [];
+  if (!Array.isArray(data.categories)) data.categories = [];
+  if (!Array.isArray(data.transactions)) data.transactions = [];
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  return data;
 }
 
 function saveData() {
@@ -66,22 +67,26 @@ function resetData() {
   renderAll();
 }
 
-function money(n) {
-  const sign = n < 0 ? "-" : "";
-  return sign + "$" + Math.abs(Number(n || 0)).toFixed(2);
+function ensureRules() {
+  if (!appData.rules) appData.rules = {};
+  if (!Array.isArray(appData.rules.monthlyExpenses)) appData.rules.monthlyExpenses = [];
+  if (!Array.isArray(appData.rules.biWeeklyFixed)) appData.rules.biWeeklyFixed = [];
+  if (!Array.isArray(appData.rules.biWeeklyVariable)) appData.rules.biWeeklyVariable = [];
 }
 
-function ensureRules() {
-  if (!appData.rules) {
-    appData.rules = {
-      monthlyExpenses: [],
-      biWeeklyFixed: [],
-      biWeeklyVariable: []
-    };
-  }
-  if (!appData.rules.monthlyExpenses) appData.rules.monthlyExpenses = [];
-  if (!appData.rules.biWeeklyFixed) appData.rules.biWeeklyFixed = [];
-  if (!appData.rules.biWeeklyVariable) appData.rules.biWeeklyVariable = [];
+function escapeHTML(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function money(n) {
+  const value = Number(n || 0);
+  const sign = value < 0 ? "-" : "";
+  return sign + "$" + Math.abs(value).toFixed(2);
 }
 
 function calculateSafeToSpend() {
@@ -92,39 +97,50 @@ function calculateSafeToSpend() {
   const remainingCategoriesTotal = (appData.categories || [])
     .reduce((sum, c) => sum + Number(c.remaining || 0), 0);
 
-  const requiredEnd = Number(appData.cycle?.requiredEndBalance || 0);
+  const savingsGoal = Number(appData.cycle?.requiredEndBalance || 0);
 
-  return Number(appData.currentBalance || 0) - unpaidBillsTotal - remainingCategoriesTotal - requiredEnd;
+  return Number(appData.currentBalance || 0) - unpaidBillsTotal - remainingCategoriesTotal - savingsGoal;
 }
 
-function getStatus() {
+function getBudgetState() {
   const safe = calculateSafeToSpend();
 
-  if (safe >= 100) {
+  if (safe < 0) {
     return {
-      title: "ON TRACK",
-      caption: "Available after bills, spending, and savings goal"
+      key: "deficit",
+      title: "DEFICIT",
+      caption: `Short by ${money(Math.abs(safe))}`,
+      safe
     };
   }
 
-  if (safe >= 0) {
+  if (safe <= 100) {
     return {
-      title: "TIGHT MARGIN",
-      caption: "Covered, but there is not much room"
+      key: "onTrack",
+      title: "ON TRACK",
+      caption: "Budget balances inside the safe margin",
+      safe
     };
   }
 
   return {
-    title: "DEFICIT",
-    caption: `Short by ${money(Math.abs(safe))}`
+    key: "surplus",
+    title: "SURPLUS",
+    caption: `${money(safe)} available after obligations`,
+    safe
+  };
+}
+
+function getStatus() {
+  const state = getBudgetState();
+  return {
+    title: state.title,
+    caption: state.caption
   };
 }
 
 function formatDate(date) {
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric"
-  });
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function formatDateWithYear(date) {
@@ -150,10 +166,9 @@ function hasActiveCycle() {
 
 function monthlyBillsForCycle(start, end) {
   ensureRules();
-  const monthly = appData.rules.monthlyExpenses || [];
   const bills = [];
 
-  monthly.forEach(rule => {
+  appData.rules.monthlyExpenses.forEach(rule => {
     const possibleMonths = [
       new Date(start.getFullYear(), start.getMonth(), 1),
       new Date(end.getFullYear(), end.getMonth(), 1)
@@ -162,33 +177,30 @@ function monthlyBillsForCycle(start, end) {
     const seen = new Set();
 
     possibleMonths.forEach(monthDate => {
-      const due = dateFromDueDay(
-        monthDate.getFullYear(),
-        monthDate.getMonth(),
-        rule.dueDay
-      );
+      const due = dateFromDueDay(monthDate.getFullYear(), monthDate.getMonth(), rule.dueDay);
+      const dueISO = formatDateWithYear(due);
+      const key = `${rule.id}-${dueISO}`;
 
-      const key = `${rule.id}-${formatDateWithYear(due)}`;
       if (seen.has(key)) return;
       seen.add(key);
 
-      if (isDateInCycle(due, start, end)) {
-        const existing = (appData.bills || []).find(b =>
-          b.ruleId === rule.id &&
-          b.dueDateISO === formatDateWithYear(due)
-        );
+      if (!isDateInCycle(due, start, end)) return;
 
-        bills.push({
-          id: existing?.id || crypto.randomUUID(),
-          ruleId: rule.id,
-          type: "monthly",
-          name: rule.name,
-          date: formatDate(due),
-          dueDateISO: formatDateWithYear(due),
-          amount: Number(rule.amount || 0),
-          paid: existing?.paid || false
-        });
-      }
+      const existing = (appData.bills || []).find(b =>
+        b.ruleId === rule.id &&
+        b.dueDateISO === dueISO
+      );
+
+      bills.push({
+        id: existing?.id || crypto.randomUUID(),
+        ruleId: rule.id,
+        type: "monthly",
+        name: rule.name,
+        date: formatDate(due),
+        dueDateISO: dueISO,
+        amount: Number(rule.amount || 0),
+        paid: existing?.paid || false
+      });
     });
   });
 
@@ -197,10 +209,10 @@ function monthlyBillsForCycle(start, end) {
 
 function fixedBillsForCycle() {
   ensureRules();
-  const fixed = appData.rules.biWeeklyFixed || [];
 
-  return fixed.map(rule => {
+  return appData.rules.biWeeklyFixed.map(rule => {
     const existing = (appData.bills || []).find(b => b.ruleId === rule.id && b.type === "fixed");
+
     return {
       id: existing?.id || crypto.randomUUID(),
       ruleId: rule.id,
@@ -215,20 +227,19 @@ function fixedBillsForCycle() {
 
 function variableCategoriesForCycle() {
   ensureRules();
-  const variable = appData.rules.biWeeklyVariable || [];
 
-  return variable.map(rule => {
+  return appData.rules.biWeeklyVariable.map(rule => {
     const existing = (appData.categories || []).find(c => c.ruleId === rule.id);
-    const oldBudget = Number(existing?.budget || rule.amount || 0);
+    const previousBudget = Number(existing?.budget || rule.amount || 0);
     const newBudget = Number(rule.amount || 0);
-    const spent = existing ? oldBudget - Number(existing.remaining || 0) : 0;
+    const alreadySpent = existing ? previousBudget - Number(existing.remaining || 0) : 0;
 
     return {
       id: existing?.id || crypto.randomUUID(),
       ruleId: rule.id,
       name: rule.name,
       budget: newBudget,
-      remaining: newBudget - spent
+      remaining: newBudget - alreadySpent
     };
   });
 }
@@ -247,61 +258,6 @@ function syncCurrentCycleFromRules() {
   appData.categories = variableCategoriesForCycle();
 }
 
-function startNewCycle() {
-  openActionModal({
-    kicker: "New Cycle",
-    title: "Start New Cycle",
-    message: "Enter your actual account balance. The app will generate a fresh 14-day cycle from your setup rules.",
-    fields: [
-      { id: "newCycleBalance", label: "Current Account Balance", type: "number", value: appData.currentBalance || "" }
-    ],
-    confirmText: "Generate Cycle",
-    dangerText: "Cancel",
-    onConfirm: values => {
-      const balance = Number(values.newCycleBalance);
-
-      if (Number.isNaN(balance)) {
-        showNotice("Invalid Amount", "Enter a valid account balance.");
-        return false;
-      }
-
-      const start = new Date();
-      const end = new Date();
-      end.setDate(start.getDate() + 14);
-
-      appData.currentBalance = balance;
-      appData.cycle = {
-        startDate: formatDate(start),
-        endDate: formatDate(end),
-        startDateISO: formatDateWithYear(start),
-        endDateISO: formatDateWithYear(end),
-        requiredEndBalance: Number(appData.cycle?.requiredEndBalance || 0),
-        createdAt: new Date().toISOString()
-      };
-
-      appData.bills = [];
-      appData.categories = [];
-      syncCurrentCycleFromRules();
-
-      appData.transactions = [{
-        id: crypto.randomUUID(),
-        label: "New Cycle",
-        note: `Started with ${money(balance)}`,
-        amount: 0,
-        date: new Date().toISOString()
-      }];
-
-      saveData();
-      renderAll();
-      switchTab("cycle");
-      showNotice("Cycle Generated", "Your new cycle was built from your setup rules.");
-      return true;
-    }
-  });
-}
-
-
-
 function renderDashboard() {
   const safe = calculateSafeToSpend();
   const status = getStatus();
@@ -310,12 +266,14 @@ function renderDashboard() {
   document.querySelector(".hero-card .caption").textContent = status.caption;
   document.getElementById("safeToSpend").textContent = money(safe);
   document.getElementById("currentBalance").textContent = money(appData.currentBalance);
-  document.getElementById("expectedEnd").textContent = money(safe + Number(appData.cycle?.requiredEndBalance || 0));
+
+  const projectedEnd = safe + Number(appData.cycle?.requiredEndBalance || 0);
+  document.getElementById("expectedEnd").textContent = money(projectedEnd);
 
   document.getElementById("billList").innerHTML = (appData.bills || []).length
     ? appData.bills.map(b => `
-      <div class="item bill-item ${b.paid ? "bill-paid" : ""}" data-id="${b.id}">
-        <div><strong>${b.name}</strong><small>${b.date}${b.paid ? " · Paid" : " · Unpaid"}</small></div>
+      <div class="item bill-item ${b.paid ? "bill-paid" : ""}" data-id="${escapeHTML(b.id)}">
+        <div><strong>${escapeHTML(b.name)}</strong><small>${escapeHTML(b.date)} · ${b.paid ? "Paid" : "Unpaid"}</small></div>
         <div class="amount">${money(b.amount)}</div>
       </div>
     `).join("")
@@ -327,10 +285,10 @@ function renderDashboard() {
 
   document.getElementById("categoryList").innerHTML = (appData.categories || []).length
     ? appData.categories.map(c => {
-      const percent = c.budget > 0 ? Math.round((c.remaining / c.budget) * 100) : 0;
+      const percent = c.budget > 0 ? Math.round((Number(c.remaining || 0) / Number(c.budget || 0)) * 100) : 0;
       return `
         <div class="item">
-          <div><strong>${c.name}</strong><small>${money(c.remaining)} left of ${money(c.budget)}</small></div>
+          <div><strong>${escapeHTML(c.name)}</strong><small>${money(c.remaining)} left of ${money(c.budget)}</small></div>
           <div class="amount">${percent}%</div>
         </div>
       `;
@@ -404,7 +362,7 @@ function renderTransactions() {
       .reverse()
       .map(t => `
         <div class="item">
-          <div><strong>${t.label}</strong><small>${t.note || "No note"}</small></div>
+          <div><strong>${escapeHTML(t.label)}</strong><small>${escapeHTML(t.note || "No note")}</small></div>
           <div class="amount ${Number(t.amount || 0) > 0 ? "positive" : ""}">${money(t.amount)}</div>
         </div>
       `).join("")
@@ -414,14 +372,14 @@ function renderTransactions() {
 function renderSetup() {
   ensureRules();
 
-  const monthly = appData.rules.monthlyExpenses || [];
-  const fixed = appData.rules.biWeeklyFixed || [];
-  const variable = appData.rules.biWeeklyVariable || [];
+  const monthly = appData.rules.monthlyExpenses;
+  const fixed = appData.rules.biWeeklyFixed;
+  const variable = appData.rules.biWeeklyVariable;
 
   document.getElementById("monthlyExpenseList").innerHTML = monthly.length
     ? monthly.map(item => `
-      <div class="item setup-edit-item" data-type="monthly" data-id="${item.id}">
-        <div><strong>${item.name}</strong><small>Due day ${item.dueDay}</small></div>
+      <div class="item setup-edit-item" data-type="monthly" data-id="${escapeHTML(item.id)}">
+        <div><strong>${escapeHTML(item.name)}</strong><small>Due day ${escapeHTML(item.dueDay)}</small></div>
         <div class="amount">${money(item.amount)}</div>
       </div>
     `).join("")
@@ -429,8 +387,8 @@ function renderSetup() {
 
   document.getElementById("fixedExpenseList").innerHTML = fixed.length
     ? fixed.map(item => `
-      <div class="item setup-edit-item" data-type="fixed" data-id="${item.id}">
-        <div><strong>${item.name}</strong><small>Fixed every cycle</small></div>
+      <div class="item setup-edit-item" data-type="fixed" data-id="${escapeHTML(item.id)}">
+        <div><strong>${escapeHTML(item.name)}</strong><small>Fixed every cycle</small></div>
         <div class="amount">${money(item.amount)}</div>
       </div>
     `).join("")
@@ -438,8 +396,8 @@ function renderSetup() {
 
   document.getElementById("variableExpenseList").innerHTML = variable.length
     ? variable.map(item => `
-      <div class="item setup-edit-item" data-type="variable" data-id="${item.id}">
-        <div><strong>${item.name}</strong><small>Variable budget</small></div>
+      <div class="item setup-edit-item" data-type="variable" data-id="${escapeHTML(item.id)}">
+        <div><strong>${escapeHTML(item.name)}</strong><small>Variable budget</small></div>
         <div class="amount">${money(item.amount)}</div>
       </div>
     `).join("")
@@ -456,51 +414,7 @@ function renderSetup() {
     row.addEventListener("click", () => openSetupModal("edit", row.dataset.type, row.dataset.id));
   });
 
-  document.getElementById("editSavingsGoalRow").addEventListener("click", setCarryoverTarget);
-}
-
-function openBillModal(billId) {
-  const bill = (appData.bills || []).find(b => b.id === billId);
-  if (!bill) return;
-
-  document.getElementById("billEditId").value = bill.id;
-  document.getElementById("billModalTitle").textContent = bill.name;
-  document.getElementById("billModalStatus").textContent = bill.paid ? "Paid" : "Unpaid";
-  document.getElementById("billModalAmount").textContent = money(bill.amount);
-  document.getElementById("toggleBillPaidBtn").textContent = bill.paid ? "Mark Unpaid" : "Mark Paid";
-
-  document.getElementById("billModal").classList.add("open");
-}
-
-function closeBillModal() {
-  document.getElementById("billModal").classList.remove("open");
-}
-
-function toggleBillPaidFromModal() {
-  const billId = document.getElementById("billEditId").value;
-  const bill = (appData.bills || []).find(b => b.id === billId);
-
-  if (!bill) return;
-
-  bill.paid = !bill.paid;
-
-  appData.transactions.push({
-    id: crypto.randomUUID(),
-    label: bill.paid ? `Paid ${bill.name}` : `Unpaid ${bill.name}`,
-    note: bill.paid ? "Bill marked paid" : "Bill marked unpaid",
-    amount: bill.paid ? -Number(bill.amount || 0) : Number(bill.amount || 0),
-    date: new Date().toISOString()
-  });
-
-  if (bill.paid) {
-    appData.currentBalance = Number(appData.currentBalance || 0) - Number(bill.amount || 0);
-  } else {
-    appData.currentBalance = Number(appData.currentBalance || 0) + Number(bill.amount || 0);
-  }
-
-  saveData();
-  renderAll();
-  closeBillModal();
+  document.getElementById("editSavingsGoalRow").addEventListener("click", setSavingsGoal);
 }
 
 function renderAll() {
@@ -528,6 +442,142 @@ function getRuleArray(type) {
   return [];
 }
 
+/* Generic branded action modal */
+function openActionModal(config) {
+  actionModalState = {
+    config,
+    choice: config.choices && config.choices.length ? config.choices[0].id : null
+  };
+
+  document.getElementById("actionModalKicker").textContent = config.kicker || "Action";
+  document.getElementById("actionModalTitle").textContent = config.title || "Action";
+  document.getElementById("actionModalMessage").textContent = config.message || "";
+  document.getElementById("actionModalCancel").textContent = config.dangerText || "Cancel";
+  document.getElementById("actionModalConfirm").textContent = config.confirmText || "Continue";
+
+  document.getElementById("actionModalFields").innerHTML = (config.fields || []).map(field => `
+    <label class="field-label">${escapeHTML(field.label)}</label>
+    <input
+      id="action-field-${escapeHTML(field.id)}"
+      class="field"
+      type="${escapeHTML(field.type || "text")}"
+      inputmode="${field.type === "number" ? "decimal" : "text"}"
+      value="${escapeHTML(field.value ?? "")}"
+      placeholder="${escapeHTML(field.placeholder || "")}"
+    />
+  `).join("");
+
+  const choicesWrap = document.getElementById("actionModalChoices");
+  choicesWrap.innerHTML = (config.choices || []).map((choice, index) => `
+    <button class="choice-button ${index === 0 ? "selected" : ""}" data-choice="${escapeHTML(choice.id)}">
+      <strong>${escapeHTML(choice.title)}</strong>
+      <small>${escapeHTML(choice.subtitle || "")}</small>
+    </button>
+  `).join("");
+
+  choicesWrap.querySelectorAll(".choice-button").forEach(button => {
+    button.addEventListener("click", () => {
+      actionModalState.choice = button.dataset.choice;
+      choicesWrap.querySelectorAll(".choice-button").forEach(b => b.classList.remove("selected"));
+      button.classList.add("selected");
+    });
+  });
+
+  document.getElementById("actionModal").classList.add("open");
+
+  const firstField = document.querySelector("#actionModalFields .field");
+  if (firstField) setTimeout(() => firstField.focus(), 80);
+}
+
+function closeActionModal() {
+  document.getElementById("actionModal").classList.remove("open");
+  actionModalState = null;
+}
+
+function confirmActionModal() {
+  if (!actionModalState) return;
+
+  const config = actionModalState.config;
+  const values = { choice: actionModalState.choice };
+
+  (config.fields || []).forEach(field => {
+    values[field.id] = document.getElementById(`action-field-${field.id}`).value;
+  });
+
+  const shouldClose = config.onConfirm ? config.onConfirm(values) : true;
+
+  if (shouldClose !== false) {
+    closeActionModal();
+  }
+}
+
+function showNotice(title, message) {
+  openActionModal({
+    kicker: "Notice",
+    title,
+    message,
+    confirmText: "OK",
+    dangerText: "Close",
+    onConfirm: () => true
+  });
+}
+
+/* New Cycle */
+function startNewCycle() {
+  openActionModal({
+    kicker: "New Cycle",
+    title: "Start New Cycle",
+    message: "Enter your actual account balance. The app will generate a fresh 14-day cycle from your setup rules.",
+    fields: [
+      { id: "newCycleBalance", label: "Current Account Balance", type: "number", value: appData.currentBalance || "" }
+    ],
+    confirmText: "Generate Cycle",
+    dangerText: "Cancel",
+    onConfirm: values => {
+      const balance = Number(values.newCycleBalance);
+
+      if (Number.isNaN(balance)) {
+        showNotice("Invalid Amount", "Enter a valid account balance.");
+        return false;
+      }
+
+      const start = new Date();
+      const end = new Date();
+      end.setDate(start.getDate() + 14);
+
+      appData.currentBalance = balance;
+      appData.cycle = {
+        startDate: formatDate(start),
+        endDate: formatDate(end),
+        startDateISO: formatDateWithYear(start),
+        endDateISO: formatDateWithYear(end),
+        requiredEndBalance: Number(appData.cycle?.requiredEndBalance || 0),
+        createdAt: new Date().toISOString()
+      };
+
+      appData.bills = [];
+      appData.categories = [];
+      syncCurrentCycleFromRules();
+
+      appData.transactions = [{
+        id: crypto.randomUUID(),
+        label: "New Cycle",
+        note: `Started with ${money(balance)}`,
+        amount: 0,
+        date: new Date().toISOString()
+      }];
+
+      saveData();
+      renderAll();
+      switchTab("cycle");
+      closeActionModal();
+      openBudgetBriefing();
+      return false;
+    }
+  });
+}
+
+/* Setup Modal */
 function openSetupModal(mode, type, id = "") {
   const isMonthly = type === "monthly";
   const labels = {
@@ -568,7 +618,7 @@ function saveSetupItemFromModal() {
   const dueDay = Number(document.getElementById("setupDueDayInput").value);
 
   if (!name) {
-    alert("Name is required.");
+    showNotice("Missing Name", "Name is required.");
     return;
   }
 
@@ -578,7 +628,7 @@ function saveSetupItemFromModal() {
   }
 
   if (type === "monthly" && (Number.isNaN(dueDay) || dueDay < 1 || dueDay > 31)) {
-    alert("Enter a valid due day from 1 to 31.");
+    showNotice("Invalid Due Day", "Enter a valid due day from 1 to 31.");
     return;
   }
 
@@ -620,9 +670,7 @@ function deleteSetupItemFromModal() {
       const arr = getRuleArray(type);
       const index = arr.findIndex(x => x.id === id);
 
-      if (index >= 0) {
-        arr.splice(index, 1);
-      }
+      if (index >= 0) arr.splice(index, 1);
 
       syncCurrentCycleFromRules();
       saveData();
@@ -633,7 +681,7 @@ function deleteSetupItemFromModal() {
   });
 }
 
-function setCarryoverTarget() {
+function setSavingsGoal() {
   openActionModal({
     kicker: "Setup",
     title: "Savings Goal Per Cycle",
@@ -659,8 +707,7 @@ function setCarryoverTarget() {
   });
 }
 
-
-
+/* Spend Modal */
 function spendMoney() {
   if (!appData.categories || appData.categories.length === 0) {
     showNotice("No Categories", "Add variable expenses in Setup, then start a new cycle.");
@@ -669,7 +716,7 @@ function spendMoney() {
 
   const select = document.getElementById("spendCategorySelect");
   select.innerHTML = appData.categories.map((category, index) => `
-    <option value="${index}">${category.name} — ${money(category.remaining)} left</option>
+    <option value="${index}">${escapeHTML(category.name)} — ${money(category.remaining)} left</option>
   `).join("");
 
   document.getElementById("spendAmountInput").value = "";
@@ -716,124 +763,7 @@ function saveSpendFromModal() {
   closeSpendModal();
 }
 
-
-let actionModalState = null;
-
-function openActionModal(config) {
-  actionModalState = {
-    config,
-    choice: config.choices && config.choices.length ? config.choices[0].id : null
-  };
-
-  document.getElementById("actionModalKicker").textContent = config.kicker || "Action";
-  document.getElementById("actionModalTitle").textContent = config.title || "Action";
-  document.getElementById("actionModalMessage").textContent = config.message || "";
-  document.getElementById("actionModalCancel").textContent = config.dangerText || "Cancel";
-  document.getElementById("actionModalConfirm").textContent = config.confirmText || "Continue";
-
-  const fieldsWrap = document.getElementById("actionModalFields");
-  fieldsWrap.innerHTML = (config.fields || []).map(field => `
-    <label class="field-label">${field.label}</label>
-    <input
-      id="action-field-${field.id}"
-      class="field"
-      type="${field.type || "text"}"
-      inputmode="${field.type === "number" ? "decimal" : "text"}"
-      value="${field.value ?? ""}"
-      placeholder="${field.placeholder || ""}"
-    />
-  `).join("");
-
-  const choicesWrap = document.getElementById("actionModalChoices");
-  choicesWrap.innerHTML = (config.choices || []).map((choice, index) => `
-    <button class="choice-button ${index === 0 ? "selected" : ""}" data-choice="${choice.id}">
-      <strong>${choice.title}</strong>
-      <small>${choice.subtitle || ""}</small>
-    </button>
-  `).join("");
-
-  choicesWrap.querySelectorAll(".choice-button").forEach(button => {
-    button.addEventListener("click", () => {
-      actionModalState.choice = button.dataset.choice;
-      choicesWrap.querySelectorAll(".choice-button").forEach(b => b.classList.remove("selected"));
-      button.classList.add("selected");
-    });
-  });
-
-  document.getElementById("actionModal").classList.add("open");
-
-  const firstField = fieldsWrap.querySelector(".field");
-  if (firstField) setTimeout(() => firstField.focus(), 80);
-}
-
-function closeActionModal() {
-  document.getElementById("actionModal").classList.remove("open");
-  actionModalState = null;
-}
-
-function confirmActionModal() {
-  if (!actionModalState) return;
-
-  const config = actionModalState.config;
-  const values = { choice: actionModalState.choice };
-
-  (config.fields || []).forEach(field => {
-    values[field.id] = document.getElementById(`action-field-${field.id}`).value;
-  });
-
-  const shouldClose = config.onConfirm ? config.onConfirm(values) : true;
-
-  if (shouldClose !== false) {
-    closeActionModal();
-  }
-}
-
-function showNotice(title, message) {
-  openActionModal({
-    kicker: "Notice",
-    title,
-    message,
-    confirmText: "OK",
-    dangerText: "Close",
-    onConfirm: () => true
-  });
-}
-
-function openCorrectBalanceModal() {
-  openActionModal({
-    kicker: "Quick Action",
-    title: "Correct Balance",
-    message: "Set the account balance to match reality.",
-    fields: [
-      { id: "currentBalance", label: "Current Account Balance", type: "number", value: appData.currentBalance || 0 }
-    ],
-    confirmText: "Save Balance",
-    dangerText: "Cancel",
-    onConfirm: values => {
-      const value = Number(values.currentBalance);
-
-      if (Number.isNaN(value)) {
-        showNotice("Invalid Amount", "Enter a valid account balance.");
-        return false;
-      }
-
-      appData.currentBalance = value;
-      saveData();
-      renderAll();
-      return true;
-    }
-  });
-}
-
-document.querySelectorAll(".tab").forEach(tab => {
-  tab.addEventListener("click", () => switchTab(tab.dataset.tab));
-});
-
-document.getElementById("fab").addEventListener("click", () => {
-  document.getElementById("quickMenu").classList.toggle("open");
-});
-
-
+/* Income Modal */
 function addIncome() {
   document.getElementById("incomeAmountInput").value = "";
   document.getElementById("incomeNoteInput").value = "";
@@ -861,7 +791,7 @@ function saveIncomeFromModal() {
     id: crypto.randomUUID(),
     label: "Income",
     note: note.trim() || "Income added",
-    amount: amount,
+    amount,
     date: new Date().toISOString()
   });
 
@@ -870,9 +800,54 @@ function saveIncomeFromModal() {
   closeIncomeModal();
 }
 
+/* Bill Modal */
+function openBillModal(billId) {
+  const bill = (appData.bills || []).find(b => b.id === billId);
+  if (!bill) return;
+
+  document.getElementById("billEditId").value = bill.id;
+  document.getElementById("billModalTitle").textContent = bill.name;
+  document.getElementById("billModalStatus").textContent = bill.paid ? "Paid" : "Unpaid";
+  document.getElementById("billModalAmount").textContent = money(bill.amount);
+  document.getElementById("toggleBillPaidBtn").textContent = bill.paid ? "Mark Unpaid" : "Mark Paid";
+
+  document.getElementById("billModal").classList.add("open");
+}
+
+function closeBillModal() {
+  document.getElementById("billModal").classList.remove("open");
+}
+
+function toggleBillPaidFromModal() {
+  const billId = document.getElementById("billEditId").value;
+  const bill = (appData.bills || []).find(b => b.id === billId);
+
+  if (!bill) return;
+
+  const amount = Number(bill.amount || 0);
+  bill.paid = !bill.paid;
+
+  if (bill.paid) {
+    appData.currentBalance = Number(appData.currentBalance || 0) - amount;
+  } else {
+    appData.currentBalance = Number(appData.currentBalance || 0) + amount;
+  }
+
+  appData.transactions.push({
+    id: crypto.randomUUID(),
+    label: bill.paid ? `Paid ${bill.name}` : `Unpaid ${bill.name}`,
+    note: bill.paid ? "Bill marked paid" : "Bill marked unpaid",
+    amount: bill.paid ? -amount : amount,
+    date: new Date().toISOString()
+  });
+
+  saveData();
+  renderAll();
+  closeBillModal();
+}
 
 function openBillPickerFromMenu() {
-  const bills = (appData.bills || []);
+  const bills = appData.bills || [];
 
   if (bills.length === 0) {
     showNotice("No Bills Found", "There are no bills in the current cycle.");
@@ -908,27 +883,220 @@ function openBillPickerFromMenu() {
   });
 }
 
+/* Correct Balance */
+function openCorrectBalanceModal() {
+  openActionModal({
+    kicker: "Quick Action",
+    title: "Correct Balance",
+    message: "Set the account balance to match reality.",
+    fields: [
+      { id: "currentBalance", label: "Current Account Balance", type: "number", value: appData.currentBalance || 0 }
+    ],
+    confirmText: "Save Balance",
+    dangerText: "Cancel",
+    onConfirm: values => {
+      const value = Number(values.currentBalance);
 
+      if (Number.isNaN(value)) {
+        showNotice("Invalid Amount", "Enter a valid account balance.");
+        return false;
+      }
+
+      appData.currentBalance = value;
+      saveData();
+      renderAll();
+      return true;
+    }
+  });
+}
+
+/* Budget Doctor */
+function getDoctorCutPlan(deficit) {
+  const categories = (appData.categories || [])
+    .filter(c => Number(c.remaining || 0) > 0)
+    .sort((a, b) => Number(b.remaining || 0) - Number(a.remaining || 0));
+
+  let remainingDeficit = deficit;
+  const cuts = [];
+
+  categories.forEach(category => {
+    if (remainingDeficit <= 0) return;
+
+    const available = Number(category.remaining || 0);
+    const cut = Math.min(available, remainingDeficit);
+
+    if (cut > 0) {
+      cuts.push({ categoryId: category.id, name: category.name, amount: cut });
+      remainingDeficit -= cut;
+    }
+  });
+
+  return { cuts, remainingAfterCuts: remainingDeficit };
+}
+
+function applyDoctorCutPlan(plan) {
+  plan.cuts.forEach(cut => {
+    const category = (appData.categories || []).find(c => c.id === cut.categoryId);
+    if (!category) return;
+
+    category.remaining = Number(category.remaining || 0) - cut.amount;
+    category.budget = Math.max(0, Number(category.budget || 0) - cut.amount);
+  });
+
+  appData.transactions.push({
+    id: crypto.randomUUID(),
+    label: "Budget Doctor",
+    note: "Reduced spending budgets to cover deficit",
+    amount: 0,
+    date: new Date().toISOString()
+  });
+
+  saveData();
+  renderAll();
+}
+
+function applyDoctorSavingsReduction(deficit) {
+  const savingsGoal = Number(appData.cycle?.requiredEndBalance || 0);
+  const reduction = Math.min(savingsGoal, deficit);
+
+  appData.cycle.requiredEndBalance = savingsGoal - reduction;
+
+  appData.transactions.push({
+    id: crypto.randomUUID(),
+    label: "Budget Doctor",
+    note: `Reduced savings goal by ${money(reduction)}`,
+    amount: 0,
+    date: new Date().toISOString()
+  });
+
+  saveData();
+  renderAll();
+}
+
+function applyDoctorIncome(deficit) {
+  appData.currentBalance = Number(appData.currentBalance || 0) + deficit;
+
+  appData.transactions.push({
+    id: crypto.randomUUID(),
+    label: "Income",
+    note: "Budget Doctor recovery income",
+    amount: deficit,
+    date: new Date().toISOString()
+  });
+
+  saveData();
+  renderAll();
+}
+
+function openBudgetBriefing() {
+  const state = getBudgetState();
+  const safe = state.safe;
+
+  if (state.key === "surplus") {
+    openActionModal({
+      kicker: "Budget Briefing",
+      title: "SURPLUS",
+      message: `You're clear. After bills, spending budgets, and savings goal, you still have ${money(safe)} available.`,
+      confirmText: "Good",
+      dangerText: "Close",
+      onConfirm: () => true
+    });
+    return;
+  }
+
+  if (state.key === "onTrack") {
+    openActionModal({
+      kicker: "Budget Briefing",
+      title: "ON TRACK",
+      message: `The cycle works. You have ${money(safe)} of margin after everything is accounted for.`,
+      confirmText: "Good",
+      dangerText: "Close",
+      onConfirm: () => true
+    });
+    return;
+  }
+
+  const deficit = Math.abs(safe);
+  const cutPlan = getDoctorCutPlan(deficit);
+  const cutSubtitle = cutPlan.cuts.length
+    ? cutPlan.cuts.map(c => `${c.name} -${money(c.amount)}`).join(" · ") + (cutPlan.remainingAfterCuts > 0 ? ` · Still short ${money(cutPlan.remainingAfterCuts)}` : " · Budget recovered")
+    : "No variable spending available to cut";
+
+  const savingsGoal = Number(appData.cycle?.requiredEndBalance || 0);
+  const savingsReduction = Math.min(savingsGoal, deficit);
+  const savingsSubtitle = savingsReduction > 0
+    ? `Reduce savings goal by ${money(savingsReduction)}${deficit > savingsReduction ? ` · Still short ${money(deficit - savingsReduction)}` : " · Budget recovered"}`
+    : "No savings goal available to reduce";
+
+  openActionModal({
+    kicker: "Budget Doctor",
+    title: "DEFICIT DETECTED",
+    message: `You are short ${money(deficit)} this cycle. Choose a recovery plan.`,
+    choices: [
+      { id: "cut", title: "Option 1: Cut Spending Budgets", subtitle: cutSubtitle },
+      { id: "savings", title: "Option 2: Reduce Savings Goal", subtitle: savingsSubtitle },
+      { id: "income", title: "Option 3: Add Recovery Income", subtitle: `Add ${money(deficit)} income to make the cycle work` }
+    ],
+    confirmText: "Apply Plan",
+    dangerText: "Not Now",
+    onConfirm: values => {
+      if (values.choice === "cut") {
+        if (!cutPlan.cuts.length) {
+          showNotice("No Cuts Available", "There are no variable spending budgets to cut.");
+          return false;
+        }
+
+        applyDoctorCutPlan(cutPlan);
+        closeActionModal();
+        showNotice("Plan Applied", "Spending budgets were reduced.");
+        return false;
+      }
+
+      if (values.choice === "savings") {
+        if (savingsReduction <= 0) {
+          showNotice("No Savings Goal", "There is no savings goal available to reduce.");
+          return false;
+        }
+
+        applyDoctorSavingsReduction(deficit);
+        closeActionModal();
+        showNotice("Plan Applied", "Savings goal was reduced.");
+        return false;
+      }
+
+      if (values.choice === "income") {
+        applyDoctorIncome(deficit);
+        closeActionModal();
+        showNotice("Plan Applied", `${money(deficit)} income was added.`);
+        return false;
+      }
+
+      return true;
+    }
+  });
+}
+
+/* Events */
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => switchTab(tab.dataset.tab));
+});
+
+document.getElementById("fab").addEventListener("click", () => {
+  document.getElementById("quickMenu").classList.toggle("open");
+});
 
 document.querySelectorAll("#quickMenu button").forEach(btn => {
   btn.addEventListener("click", () => {
     const action = btn.dataset.action;
-
-    if (action === "spend") {
-      spendMoney();
-    } else if (action === "income") {
-      addIncome();
-    } else if (action === "balance") {
-      openCorrectBalanceModal();
-    } else if (action === "bill") {
-      openBillPickerFromMenu();
-    } else if (action === "cycle") {
-      startNewCycle();
-    } else {
-      alert(`${btn.textContent} will be wired in a later phase.`);
-    }
-
     document.getElementById("quickMenu").classList.remove("open");
+
+    if (action === "spend") spendMoney();
+    else if (action === "income") addIncome();
+    else if (action === "bill") openBillPickerFromMenu();
+    else if (action === "balance") openCorrectBalanceModal();
+    else if (action === "cycle") startNewCycle();
+    else if (action === "doctor") openBudgetBriefing();
+    else showNotice("Coming Soon", `${btn.textContent} will be wired later.`);
   });
 });
 
@@ -937,19 +1105,19 @@ document.getElementById("newCycleBtn").addEventListener("click", startNewCycle);
 document.getElementById("addMonthlyExpenseBtn").addEventListener("click", () => openSetupModal("new", "monthly"));
 document.getElementById("addFixedExpenseBtn").addEventListener("click", () => openSetupModal("new", "fixed"));
 document.getElementById("addVariableExpenseBtn").addEventListener("click", () => openSetupModal("new", "variable"));
-document.getElementById("setCarryoverBtn").addEventListener("click", setCarryoverTarget);
+document.getElementById("setCarryoverBtn").addEventListener("click", setSavingsGoal);
 
 const setupActions = document.querySelector(".setup-actions");
-const resetButton = document.createElement("button");
-resetButton.className = "setup-action";
-resetButton.innerHTML = `
+const wipeButton = document.createElement("button");
+wipeButton.className = "setup-action";
+wipeButton.innerHTML = `
   <span class="setup-icon">🧨</span>
   <span>
     <strong>Wipe Data</strong>
     <small>Restore app to fresh install</small>
   </span>
 `;
-resetButton.addEventListener("click", () => {
+wipeButton.addEventListener("click", () => {
   openActionModal({
     kicker: "Danger Zone",
     title: "Wipe All Data?",
@@ -958,6 +1126,7 @@ resetButton.addEventListener("click", () => {
     dangerText: "Cancel",
     onConfirm: () => {
       closeActionModal();
+
       openActionModal({
         kicker: "Final Confirmation",
         title: "Are You Absolutely Sure?",
@@ -966,20 +1135,23 @@ resetButton.addEventListener("click", () => {
         dangerText: "Cancel",
         onConfirm: () => {
           resetData();
+          closeActionModal();
           showNotice("Data Wiped", "The app has been restored to a blank fresh install.");
-          return true;
+          return false;
         }
       });
+
       return false;
     }
   });
 });
-setupActions.appendChild(resetButton);
+setupActions.appendChild(wipeButton);
 
-document.getElementById("closeSpendModal").addEventListener("click", closeSpendModal);
-document.getElementById("saveSpendBtn").addEventListener("click", saveSpendFromModal);
-document.getElementById("spendModal").addEventListener("click", event => {
-  if (event.target.id === "spendModal") closeSpendModal();
+document.getElementById("closeActionModal").addEventListener("click", closeActionModal);
+document.getElementById("actionModalCancel").addEventListener("click", closeActionModal);
+document.getElementById("actionModalConfirm").addEventListener("click", confirmActionModal);
+document.getElementById("actionModal").addEventListener("click", event => {
+  if (event.target.id === "actionModal") closeActionModal();
 });
 
 document.getElementById("closeSetupModal").addEventListener("click", closeSetupModal);
@@ -989,10 +1161,10 @@ document.getElementById("setupModal").addEventListener("click", event => {
   if (event.target.id === "setupModal") closeSetupModal();
 });
 
-document.getElementById("closeBillModal").addEventListener("click", closeBillModal);
-document.getElementById("toggleBillPaidBtn").addEventListener("click", toggleBillPaidFromModal);
-document.getElementById("billModal").addEventListener("click", event => {
-  if (event.target.id === "billModal") closeBillModal();
+document.getElementById("closeSpendModal").addEventListener("click", closeSpendModal);
+document.getElementById("saveSpendBtn").addEventListener("click", saveSpendFromModal);
+document.getElementById("spendModal").addEventListener("click", event => {
+  if (event.target.id === "spendModal") closeSpendModal();
 });
 
 document.getElementById("closeIncomeModal").addEventListener("click", closeIncomeModal);
@@ -1001,11 +1173,10 @@ document.getElementById("incomeModal").addEventListener("click", event => {
   if (event.target.id === "incomeModal") closeIncomeModal();
 });
 
-document.getElementById("closeActionModal").addEventListener("click", closeActionModal);
-document.getElementById("actionModalCancel").addEventListener("click", closeActionModal);
-document.getElementById("actionModalConfirm").addEventListener("click", confirmActionModal);
-document.getElementById("actionModal").addEventListener("click", event => {
-  if (event.target.id === "actionModal") closeActionModal();
+document.getElementById("closeBillModal").addEventListener("click", closeBillModal);
+document.getElementById("toggleBillPaidBtn").addEventListener("click", toggleBillPaidFromModal);
+document.getElementById("billModal").addEventListener("click", event => {
+  if (event.target.id === "billModal") closeBillModal();
 });
 
 renderAll();
