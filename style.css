@@ -590,3 +590,18 @@ select.field{
 .item.bill-paid small{
   color:rgba(34,242,143,.75);
 }
+
+
+/* Dashboard edit final polish */
+.dashboard-editable{
+  cursor:pointer;
+}
+
+.dashboard-editable:active{
+  transform:scale(.995);
+}
+
+.dashboard-editable small::after{
+  content:" · Tap to edit";
+  color:rgba(246,200,95,.78);
+}
