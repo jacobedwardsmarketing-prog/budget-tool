@@ -64,7 +64,12 @@ function resetData() {
   localStorage.removeItem(STORAGE_KEY);
   appData = cloneDefaultData();
   saveData();
-  
+  document.getElementById("closeDashboardEditModal").addEventListener("click", closeDashboardEditModal);
+document.getElementById("saveDashboardEditBtn").addEventListener("click", saveDashboardEditFromModal);
+document.getElementById("dashboardEditModal").addEventListener("click", event => {
+  if (event.target.id === "dashboardEditModal") closeDashboardEditModal();
+});
+
 renderAll();
 }
 
@@ -889,101 +894,98 @@ function openBillPickerFromMenu() {
 }
 
 
-/* Dashboard Amount Editing */
+/* Dashboard Amount Editor */
 function openDashboardBillEditModal(billId) {
   const bill = (appData.bills || []).find(b => b.id === billId);
   if (!bill) return;
 
-  openActionModal({
-    kicker: "Bill",
-    title: bill.name,
-    message: "Edit the bill amount for this cycle.",
-    fields: [
-      { id: "billAmount", label: "Bill Amount", type: "number", value: Number(bill.amount || 0) }
-    ],
-    choices: [
-      { id: "edit", title: "Edit Amount", subtitle: "Change the amount for this bill" },
-      { id: "paid", title: bill.paid ? "Mark Unpaid" : "Mark Paid", subtitle: "Open bill control instead" }
-    ],
-    confirmText: "Continue",
-    dangerText: "Cancel",
-    onConfirm: values => {
-      if (values.choice === "paid") {
-        closeActionModal();
-        openBillModal(bill.id);
-        return false;
-      }
-
-      const amount = Number(values.billAmount);
-
-      if (Number.isNaN(amount) || amount < 0) {
-        showNotice("Invalid Amount", "Enter a valid amount.");
-        return false;
-      }
-
-      bill.amount = amount;
-
-      const rule = (appData.rules?.monthlyExpenses || []).find(r => r.id === bill.ruleId)
-        || (appData.rules?.biWeeklyFixed || []).find(r => r.id === bill.ruleId);
-
-      if (rule) rule.amount = amount;
-
-      appData.transactions.push({
-        id: crypto.randomUUID(),
-        label: "Adjusted Bill",
-        note: `${bill.name} amount set to ${money(amount)}`,
-        amount: 0,
-        date: new Date().toISOString()
-      });
-
-      saveData();
-      renderAll();
-      return true;
-    }
-  });
+  document.getElementById("dashboardEditType").value = "bill";
+  document.getElementById("dashboardEditId").value = bill.id;
+  document.getElementById("dashboardEditKicker").textContent = "Bill";
+  document.getElementById("dashboardEditTitle").textContent = bill.name;
+  document.getElementById("dashboardEditAmountLabel").textContent = "Bill Amount";
+  document.getElementById("dashboardEditAmountInput").value = Number(bill.amount || 0);
+  document.getElementById("dashboardEditModal").classList.add("open");
 }
 
 function openDashboardCategoryEditModal(categoryId) {
   const category = (appData.categories || []).find(c => c.id === categoryId);
   if (!category) return;
 
-  openActionModal({
-    kicker: "Spending Budget",
-    title: category.name,
-    message: "Edit the remaining amount for this category.",
-    fields: [
-      { id: "categoryRemaining", label: "Remaining Amount", type: "number", value: Number(category.remaining || 0) }
-    ],
-    confirmText: "Save Amount",
-    dangerText: "Cancel",
-    onConfirm: values => {
-      const amount = Number(values.categoryRemaining);
+  document.getElementById("dashboardEditType").value = "category";
+  document.getElementById("dashboardEditId").value = category.id;
+  document.getElementById("dashboardEditKicker").textContent = "Spending Budget";
+  document.getElementById("dashboardEditTitle").textContent = category.name;
+  document.getElementById("dashboardEditAmountLabel").textContent = "Remaining Amount";
+  document.getElementById("dashboardEditAmountInput").value = Number(category.remaining || 0);
+  document.getElementById("dashboardEditModal").classList.add("open");
+}
 
-      if (Number.isNaN(amount) || amount < 0) {
-        showNotice("Invalid Amount", "Enter a valid amount.");
-        return false;
-      }
+function closeDashboardEditModal() {
+  document.getElementById("dashboardEditModal").classList.remove("open");
+}
 
-      const spent = Number(category.budget || 0) - Number(category.remaining || 0);
-      category.remaining = amount;
-      category.budget = amount + Math.max(0, spent);
+function saveDashboardEditFromModal() {
+  const type = document.getElementById("dashboardEditType").value;
+  const id = document.getElementById("dashboardEditId").value;
+  const amount = Number(document.getElementById("dashboardEditAmountInput").value);
 
-      const rule = (appData.rules?.biWeeklyVariable || []).find(r => r.id === category.ruleId);
-      if (rule) rule.amount = category.budget;
+  if (Number.isNaN(amount) || amount < 0) {
+    showNotice("Invalid Amount", "Enter a valid amount.");
+    return;
+  }
 
-      appData.transactions.push({
-        id: crypto.randomUUID(),
-        label: "Adjusted Budget",
-        note: `${category.name} remaining set to ${money(amount)}`,
-        amount: 0,
-        date: new Date().toISOString()
-      });
-
-      saveData();
-      renderAll();
-      return true;
+  if (type === "bill") {
+    const bill = (appData.bills || []).find(b => b.id === id);
+    if (!bill) {
+      showNotice("Bill Not Found", "This bill could not be found.");
+      return;
     }
-  });
+
+    bill.amount = amount;
+
+    const monthlyRule = (appData.rules?.monthlyExpenses || []).find(r => r.id === bill.ruleId);
+    const fixedRule = (appData.rules?.biWeeklyFixed || []).find(r => r.id === bill.ruleId);
+    const rule = monthlyRule || fixedRule;
+
+    if (rule) rule.amount = amount;
+
+    appData.transactions.push({
+      id: crypto.randomUUID(),
+      label: "Adjusted Bill",
+      note: `${bill.name} amount set to ${money(amount)}`,
+      amount: 0,
+      date: new Date().toISOString()
+    });
+  }
+
+  if (type === "category") {
+    const category = (appData.categories || []).find(c => c.id === id);
+    if (!category) {
+      showNotice("Category Not Found", "This spending category could not be found.");
+      return;
+    }
+
+    const spent = Number(category.budget || 0) - Number(category.remaining || 0);
+
+    category.remaining = amount;
+    category.budget = Math.max(amount, amount + Math.max(0, spent));
+
+    const rule = (appData.rules?.biWeeklyVariable || []).find(r => r.id === category.ruleId);
+    if (rule) rule.amount = category.budget;
+
+    appData.transactions.push({
+      id: crypto.randomUUID(),
+      label: "Adjusted Budget",
+      note: `${category.name} remaining set to ${money(amount)}`,
+      amount: 0,
+      date: new Date().toISOString()
+    });
+  }
+
+  saveData();
+  renderAll();
+  closeDashboardEditModal();
 }
 
 /* Correct Balance */
