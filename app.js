@@ -337,23 +337,47 @@ function renderCycle() {
   const remainingCategoriesTotal = (appData.categories || [])
     .reduce((sum, c) => sum + Number(c.remaining || 0), 0);
 
-  const requiredEnd = Number(appData.cycle?.requiredEndBalance || 0);
+  const savingsGoal = Number(appData.cycle?.requiredEndBalance || 0);
+  const currentCash = Number(appData.currentBalance || 0);
   const safe = calculateSafeToSpend();
 
   const rows = [
-    ["Current Balance", appData.currentBalance],
-    ["Unpaid Bills", -unpaidBillsTotal],
-    ["Remaining Categories", -remainingCategoriesTotal],
-    ["Savings Goal", -requiredEnd],
-    ["Safe To Spend", safe]
+    {
+      label: "Current Account Balance",
+      value: currentCash,
+      note: "What is actually in the account right now"
+    },
+    {
+      label: "Unpaid Bills Still Due",
+      value: -unpaidBillsTotal,
+      note: "Bills not marked paid yet"
+    },
+    {
+      label: "Remaining Spending Budgets",
+      value: -remainingCategoriesTotal,
+      note: "Category money still reserved for this cycle"
+    },
+    {
+      label: "Savings Goal Per Cycle",
+      value: -savingsGoal,
+      note: "Target money left at the end"
+    },
+    {
+      label: "Safe To Spend",
+      value: safe,
+      note: "Money not already spoken for"
+    }
   ];
 
   document.querySelector("#cycle h1").textContent = `${appData.cycle?.startDate || "No cycle"} – ${appData.cycle?.endDate || "Not started"}`;
 
-  document.getElementById("cycleSummary").innerHTML = rows.map(r => `
-    <div class="money-row">
-      <span>${r[0]}</span>
-      <strong>${money(r[1])}</strong>
+  document.getElementById("cycleSummary").innerHTML = rows.map((r, index) => `
+    <div class="money-row ${index === rows.length - 1 ? "total-row" : ""}">
+      <span>
+        ${r.label}
+        <small>${r.note}</small>
+      </span>
+      <strong>${money(r.value)}</strong>
     </div>
   `).join("");
 }
