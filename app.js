@@ -64,10 +64,23 @@ function resetData() {
   localStorage.removeItem(STORAGE_KEY);
   appData = cloneDefaultData();
   saveData();
-  document.getElementById("closeDashboardEditModal").addEventListener("click", closeDashboardEditModal);
-document.getElementById("saveDashboardEditBtn").addEventListener("click", saveDashboardEditFromModal);
-document.getElementById("dashboardEditModal").addEventListener("click", event => {
-  if (event.target.id === "dashboardEditModal") closeDashboardEditModal();
+  
+document.addEventListener("click", event => {
+  const target = event.target;
+
+  if (!target) return;
+
+  if (target.id === "closeDashboardEditModal") {
+    closeDashboardEditModal();
+  }
+
+  if (target.id === "saveDashboardEditBtn") {
+    saveDashboardEditFromModal();
+  }
+
+  if (target.id === "dashboardEditModal") {
+    closeDashboardEditModal();
+  }
 });
 
 renderAll();
@@ -924,13 +937,23 @@ function openDashboardCategoryEditModal(categoryId) {
 }
 
 function closeDashboardEditModal() {
-  document.getElementById("dashboardEditModal").classList.remove("open");
+  const modal = document.getElementById("dashboardEditModal");
+  if (modal) modal.classList.remove("open");
 }
 
 function saveDashboardEditFromModal() {
-  const type = document.getElementById("dashboardEditType").value;
-  const id = document.getElementById("dashboardEditId").value;
-  const amount = Number(document.getElementById("dashboardEditAmountInput").value);
+  const typeEl = document.getElementById("dashboardEditType");
+  const idEl = document.getElementById("dashboardEditId");
+  const amountEl = document.getElementById("dashboardEditAmountInput");
+
+  if (!typeEl || !idEl || !amountEl) {
+    showNotice("Editor Error", "The dashboard editor did not load correctly.");
+    return;
+  }
+
+  const type = typeEl.value;
+  const id = idEl.value;
+  const amount = Number(amountEl.value);
 
   if (Number.isNaN(amount) || amount < 0) {
     showNotice("Invalid Amount", "Enter a valid amount.");
@@ -939,7 +962,10 @@ function saveDashboardEditFromModal() {
 
   if (type === "bill") {
     const bill = (appData.bills || []).find(b => b.id === id);
-    if (!bill) return;
+    if (!bill) {
+      showNotice("Bill Not Found", "This bill could not be found.");
+      return;
+    }
 
     bill.amount = amount;
 
@@ -955,11 +981,12 @@ function saveDashboardEditFromModal() {
       amount: 0,
       date: new Date().toISOString()
     });
-  }
-
-  if (type === "category") {
+  } else if (type === "category") {
     const category = (appData.categories || []).find(c => c.id === id);
-    if (!category) return;
+    if (!category) {
+      showNotice("Category Not Found", "This category could not be found.");
+      return;
+    }
 
     const spent = Number(category.budget || 0) - Number(category.remaining || 0);
     category.remaining = amount;
@@ -975,6 +1002,9 @@ function saveDashboardEditFromModal() {
       amount: 0,
       date: new Date().toISOString()
     });
+  } else {
+    showNotice("Editor Error", "Unknown dashboard edit type.");
+    return;
   }
 
   saveData();
