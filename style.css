@@ -430,3 +430,9 @@ select.field{
 .item.bill-paid small{
   color:rgba(34,242,143,.75);
 }
+
+
+/* Phase 10 — income transaction polish */
+.amount.positive{
+  color:var(--green);
+}
