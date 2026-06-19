@@ -436,3 +436,26 @@ select.field{
 .amount.positive{
   color:var(--green);
 }
+
+
+/* Phase 11 — clearer cycle math */
+.money-row span small{
+  display:block;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:500;
+  margin-top:4px;
+  line-height:1.25;
+}
+
+.money-row.total-row{
+  margin-top:6px;
+  padding-top:17px;
+  border-top:1px solid rgba(246,200,95,.28);
+}
+
+.money-row.total-row span,
+.money-row.total-row strong{
+  color:var(--gold);
+  font-weight:1000;
+}
