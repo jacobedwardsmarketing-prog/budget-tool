@@ -248,50 +248,59 @@ function syncCurrentCycleFromRules() {
 }
 
 function startNewCycle() {
-  ensureRules();
+  openActionModal({
+    kicker: "New Cycle",
+    title: "Start New Cycle",
+    message: "Enter your actual account balance. The app will generate a fresh 14-day cycle from your setup rules.",
+    fields: [
+      { id: "newCycleBalance", label: "Current Account Balance", type: "number", value: appData.currentBalance || "" }
+    ],
+    confirmText: "Generate Cycle",
+    dangerText: "Cancel",
+    onConfirm: values => {
+      const balance = Number(values.newCycleBalance);
 
-  const value = prompt("Current account balance?", appData.currentBalance);
-  if (value === null) return;
+      if (Number.isNaN(balance)) {
+        showNotice("Invalid Amount", "Enter a valid account balance.");
+        return false;
+      }
 
-  const balance = Number(value);
+      const start = new Date();
+      const end = new Date();
+      end.setDate(start.getDate() + 14);
 
-  if (Number.isNaN(balance)) {
-    alert("Enter a valid number.");
-    return;
-  }
+      appData.currentBalance = balance;
+      appData.cycle = {
+        startDate: formatDate(start),
+        endDate: formatDate(end),
+        startDateISO: formatDateWithYear(start),
+        endDateISO: formatDateWithYear(end),
+        requiredEndBalance: Number(appData.cycle?.requiredEndBalance || 0),
+        createdAt: new Date().toISOString()
+      };
 
-  const start = new Date();
-  const end = new Date();
-  end.setDate(start.getDate() + 14);
+      appData.bills = [];
+      appData.categories = [];
+      syncCurrentCycleFromRules();
 
-  appData.currentBalance = balance;
-  appData.cycle = {
-    startDate: formatDate(start),
-    endDate: formatDate(end),
-    startDateISO: formatDateWithYear(start),
-    endDateISO: formatDateWithYear(end),
-    requiredEndBalance: Number(appData.cycle?.requiredEndBalance || 0),
-    createdAt: new Date().toISOString()
-  };
+      appData.transactions = [{
+        id: crypto.randomUUID(),
+        label: "New Cycle",
+        note: `Started with ${money(balance)}`,
+        amount: 0,
+        date: new Date().toISOString()
+      }];
 
-  appData.bills = [];
-  appData.categories = [];
-  syncCurrentCycleFromRules();
-
-  appData.transactions = [{
-    id: crypto.randomUUID(),
-    label: "New Cycle",
-    note: `Started with ${money(balance)}`,
-    amount: 0,
-    date: new Date().toISOString()
-  }];
-
-  saveData();
-  renderAll();
-  switchTab("cycle");
-
-  alert("New cycle generated from Setup rules.");
+      saveData();
+      renderAll();
+      switchTab("cycle");
+      showNotice("Cycle Generated", "Your new cycle was built from your setup rules.");
+      return true;
+    }
+  });
 }
+
+
 
 function renderDashboard() {
   const safe = calculateSafeToSpend();
@@ -377,24 +386,15 @@ function renderCycle() {
     }
   ];
 
-  document.getElementById("cycleSummary").innerHTML = `
-    <div class="cycle-equation-card">
-      <div class="cycle-equation-title">Budget Equation</div>
-      <div class="cycle-equation-copy">
-        Balance − unpaid bills − remaining budgets − savings goal = safe to spend.
-      </div>
+  document.getElementById("cycleSummary").innerHTML = rows.map(row => `
+    <div class="money-row cycle-math-row ${row.type}">
+      <span>
+        ${row.label}
+        <small>${row.note}</small>
+      </span>
+      <strong>${money(row.value)}</strong>
     </div>
-
-    ${rows.map(row => `
-      <div class="money-row cycle-math-row ${row.type}">
-        <span>
-          ${row.label}
-          <small>${row.note}</small>
-        </span>
-        <strong>${money(row.value)}</strong>
-      </div>
-    `).join("")}
-  `;
+  `).join("");
 }
 
 function renderTransactions() {
@@ -573,7 +573,7 @@ function saveSetupItemFromModal() {
   }
 
   if (Number.isNaN(amount)) {
-    alert("Enter a valid amount.");
+    showNotice("Invalid Amount", "Enter a valid amount.");
     return;
   }
 
@@ -610,38 +610,60 @@ function deleteSetupItemFromModal() {
   const type = document.getElementById("setupEditType").value;
   const id = document.getElementById("setupEditId").value;
 
-  const confirmed = confirm("Delete this item?");
-  if (!confirmed) return;
+  openActionModal({
+    kicker: "Delete Rule",
+    title: "Delete This Item?",
+    message: "This removes it from your setup rules and updates the current cycle.",
+    confirmText: "Delete",
+    dangerText: "Cancel",
+    onConfirm: () => {
+      const arr = getRuleArray(type);
+      const index = arr.findIndex(x => x.id === id);
 
-  const arr = getRuleArray(type);
-  const index = arr.findIndex(x => x.id === id);
+      if (index >= 0) {
+        arr.splice(index, 1);
+      }
 
-  if (index >= 0) {
-    arr.splice(index, 1);
-  }
-
-  syncCurrentCycleFromRules();
-  saveData();
-  renderAll();
-  closeSetupModal();
+      syncCurrentCycleFromRules();
+      saveData();
+      renderAll();
+      closeSetupModal();
+      return true;
+    }
+  });
 }
 
 function setCarryoverTarget() {
-  const amount = Number(prompt("Savings goal per cycle?", appData.cycle?.requiredEndBalance || 0));
+  openActionModal({
+    kicker: "Setup",
+    title: "Savings Goal Per Cycle",
+    message: "Set the amount you want preserved at the end of each cycle.",
+    fields: [
+      { id: "savingsGoal", label: "Savings Goal", type: "number", value: appData.cycle?.requiredEndBalance || 0 }
+    ],
+    confirmText: "Save Goal",
+    dangerText: "Cancel",
+    onConfirm: values => {
+      const amount = Number(values.savingsGoal);
 
-  if (Number.isNaN(amount)) {
-    alert("Enter a valid amount.");
-    return;
-  }
+      if (Number.isNaN(amount)) {
+        showNotice("Invalid Amount", "Enter a valid savings goal.");
+        return false;
+      }
 
-  appData.cycle.requiredEndBalance = amount;
-  saveData();
-  renderAll();
+      appData.cycle.requiredEndBalance = amount;
+      saveData();
+      renderAll();
+      return true;
+    }
+  });
 }
+
+
 
 function spendMoney() {
   if (!appData.categories || appData.categories.length === 0) {
-    alert("No spending categories found. Add variable expenses in Setup, then start a new cycle.");
+    showNotice("No Categories", "Add variable expenses in Setup, then start a new cycle.");
     return;
   }
 
@@ -665,14 +687,14 @@ function saveSpendFromModal() {
   const category = appData.categories[index];
 
   if (!category) {
-    alert("Invalid category.");
+    showNotice("Invalid Category", "Choose a valid spending category.");
     return;
   }
 
   const amount = Number(document.getElementById("spendAmountInput").value);
 
   if (Number.isNaN(amount) || amount <= 0) {
-    alert("Enter a valid amount.");
+    showNotice("Invalid Amount", "Enter a valid amount.");
     return;
   }
 
@@ -692,6 +714,115 @@ function saveSpendFromModal() {
   saveData();
   renderAll();
   closeSpendModal();
+}
+
+
+let actionModalState = null;
+
+function openActionModal(config) {
+  actionModalState = {
+    config,
+    choice: config.choices && config.choices.length ? config.choices[0].id : null
+  };
+
+  document.getElementById("actionModalKicker").textContent = config.kicker || "Action";
+  document.getElementById("actionModalTitle").textContent = config.title || "Action";
+  document.getElementById("actionModalMessage").textContent = config.message || "";
+  document.getElementById("actionModalCancel").textContent = config.dangerText || "Cancel";
+  document.getElementById("actionModalConfirm").textContent = config.confirmText || "Continue";
+
+  const fieldsWrap = document.getElementById("actionModalFields");
+  fieldsWrap.innerHTML = (config.fields || []).map(field => `
+    <label class="field-label">${field.label}</label>
+    <input
+      id="action-field-${field.id}"
+      class="field"
+      type="${field.type || "text"}"
+      inputmode="${field.type === "number" ? "decimal" : "text"}"
+      value="${field.value ?? ""}"
+      placeholder="${field.placeholder || ""}"
+    />
+  `).join("");
+
+  const choicesWrap = document.getElementById("actionModalChoices");
+  choicesWrap.innerHTML = (config.choices || []).map((choice, index) => `
+    <button class="choice-button ${index === 0 ? "selected" : ""}" data-choice="${choice.id}">
+      <strong>${choice.title}</strong>
+      <small>${choice.subtitle || ""}</small>
+    </button>
+  `).join("");
+
+  choicesWrap.querySelectorAll(".choice-button").forEach(button => {
+    button.addEventListener("click", () => {
+      actionModalState.choice = button.dataset.choice;
+      choicesWrap.querySelectorAll(".choice-button").forEach(b => b.classList.remove("selected"));
+      button.classList.add("selected");
+    });
+  });
+
+  document.getElementById("actionModal").classList.add("open");
+
+  const firstField = fieldsWrap.querySelector(".field");
+  if (firstField) setTimeout(() => firstField.focus(), 80);
+}
+
+function closeActionModal() {
+  document.getElementById("actionModal").classList.remove("open");
+  actionModalState = null;
+}
+
+function confirmActionModal() {
+  if (!actionModalState) return;
+
+  const config = actionModalState.config;
+  const values = { choice: actionModalState.choice };
+
+  (config.fields || []).forEach(field => {
+    values[field.id] = document.getElementById(`action-field-${field.id}`).value;
+  });
+
+  const shouldClose = config.onConfirm ? config.onConfirm(values) : true;
+
+  if (shouldClose !== false) {
+    closeActionModal();
+  }
+}
+
+function showNotice(title, message) {
+  openActionModal({
+    kicker: "Notice",
+    title,
+    message,
+    confirmText: "OK",
+    dangerText: "Close",
+    onConfirm: () => true
+  });
+}
+
+function openCorrectBalanceModal() {
+  openActionModal({
+    kicker: "Quick Action",
+    title: "Correct Balance",
+    message: "Set the account balance to match reality.",
+    fields: [
+      { id: "currentBalance", label: "Current Account Balance", type: "number", value: appData.currentBalance || 0 }
+    ],
+    confirmText: "Save Balance",
+    dangerText: "Cancel",
+    onConfirm: values => {
+      const value = Number(values.currentBalance);
+
+      if (Number.isNaN(value)) {
+        showNotice("Invalid Amount", "Enter a valid account balance.");
+        return false;
+      }
+
+      appData.currentBalance = value;
+      saveData();
+      renderAll();
+      return true;
+    }
+  });
 }
 
 document.querySelectorAll(".tab").forEach(tab => {
@@ -718,7 +849,7 @@ function saveIncomeFromModal() {
   const amount = Number(document.getElementById("incomeAmountInput").value);
 
   if (Number.isNaN(amount) || amount <= 0) {
-    alert("Enter a valid income amount.");
+    showNotice("Invalid Amount", "Enter a valid income amount.");
     return;
   }
 
@@ -744,36 +875,40 @@ function openBillPickerFromMenu() {
   const bills = (appData.bills || []);
 
   if (bills.length === 0) {
-    alert("No bills found in the current cycle.");
+    showNotice("No Bills Found", "There are no bills in the current cycle.");
     return;
   }
 
   const unpaid = bills.filter(b => !b.paid);
   const billList = unpaid.length ? unpaid : bills;
 
-  if (unpaid.length === 0) {
-    const viewAll = confirm("All bills are already marked paid. View paid bills anyway?");
-    if (!viewAll) return;
-  }
+  openActionModal({
+    kicker: "Bill Control",
+    title: unpaid.length ? "Mark Bill Paid" : "All Bills Paid",
+    message: unpaid.length
+      ? "Choose a bill to open its control panel."
+      : "All bills are already marked paid. Choose one if you need to review or reverse it.",
+    choices: billList.map(bill => ({
+      id: bill.id,
+      title: bill.name,
+      subtitle: `${money(bill.amount)} · ${bill.paid ? "Paid" : "Unpaid"} · ${bill.date}`
+    })),
+    confirmText: "Open Bill",
+    dangerText: "Cancel",
+    onConfirm: values => {
+      if (!values.choice) {
+        showNotice("No Bill Selected", "Choose a bill first.");
+        return false;
+      }
 
-  const options = billList
-    .map((bill, index) => `${index + 1}. ${bill.name} — ${money(bill.amount)} — ${bill.paid ? "Paid" : "Unpaid"}`)
-    .join("\n");
-
-  const selected = prompt(`Which bill?\n\n${options}\n\nEnter the number.`);
-
-  if (selected === null) return;
-
-  const index = Number(selected) - 1;
-  const bill = billList[index];
-
-  if (!bill) {
-    alert("Invalid bill.");
-    return;
-  }
-
-  openBillModal(bill.id);
+      closeActionModal();
+      openBillModal(values.choice);
+      return false;
+    }
+  });
 }
+
+
 
 document.querySelectorAll("#quickMenu button").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -784,12 +919,7 @@ document.querySelectorAll("#quickMenu button").forEach(btn => {
     } else if (action === "income") {
       addIncome();
     } else if (action === "balance") {
-      const value = prompt("Current account balance?", appData.currentBalance);
-      if (value !== null && !Number.isNaN(Number(value))) {
-        appData.currentBalance = Number(value);
-        saveData();
-        renderAll();
-      }
+      openCorrectBalanceModal();
     } else if (action === "bill") {
       openBillPickerFromMenu();
     } else if (action === "cycle") {
@@ -820,14 +950,29 @@ resetButton.innerHTML = `
   </span>
 `;
 resetButton.addEventListener("click", () => {
-  const firstConfirm = confirm("Wipe all saved budget data? This cannot be undone.");
-  if (!firstConfirm) return;
-
-  const secondConfirm = confirm("Final confirmation: erase everything and restore the app to fresh out-of-the-box data?");
-  if (!secondConfirm) return;
-
-  resetData();
-  alert("Data wiped. App restored to blank fresh install.");
+  openActionModal({
+    kicker: "Danger Zone",
+    title: "Wipe All Data?",
+    message: "This will erase all saved budget data and restore the app to a blank fresh install.",
+    confirmText: "Continue",
+    dangerText: "Cancel",
+    onConfirm: () => {
+      closeActionModal();
+      openActionModal({
+        kicker: "Final Confirmation",
+        title: "Are You Absolutely Sure?",
+        message: "This cannot be undone. All setup rules, cycle data, transactions, bills, and categories will be wiped.",
+        confirmText: "Wipe Everything",
+        dangerText: "Cancel",
+        onConfirm: () => {
+          resetData();
+          showNotice("Data Wiped", "The app has been restored to a blank fresh install.");
+          return true;
+        }
+      });
+      return false;
+    }
+  });
 });
 setupActions.appendChild(resetButton);
 
@@ -854,6 +999,13 @@ document.getElementById("closeIncomeModal").addEventListener("click", closeIncom
 document.getElementById("saveIncomeBtn").addEventListener("click", saveIncomeFromModal);
 document.getElementById("incomeModal").addEventListener("click", event => {
   if (event.target.id === "incomeModal") closeIncomeModal();
+});
+
+document.getElementById("closeActionModal").addEventListener("click", closeActionModal);
+document.getElementById("actionModalCancel").addEventListener("click", closeActionModal);
+document.getElementById("actionModalConfirm").addEventListener("click", confirmActionModal);
+document.getElementById("actionModal").addEventListener("click", event => {
+  if (event.target.id === "actionModal") closeActionModal();
 });
 
 renderAll();
