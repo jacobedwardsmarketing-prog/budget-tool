@@ -305,12 +305,16 @@ function renderDashboard() {
 
   document.getElementById("billList").innerHTML = (appData.bills || []).length
     ? appData.bills.map(b => `
-      <div class="item">
-        <div><strong>${b.name}</strong><small>${b.date}${b.paid ? " · Paid" : ""}</small></div>
+      <div class="item bill-item ${b.paid ? "bill-paid" : ""}" data-id="${b.id}">
+        <div><strong>${b.name}</strong><small>${b.date}${b.paid ? " · Paid" : " · Unpaid"}</small></div>
         <div class="amount">${money(b.amount)}</div>
       </div>
     `).join("")
     : `<div class="item"><div><strong>No bills loaded</strong><small>Add expenses in Setup, then start a cycle</small></div></div>`;
+
+  document.querySelectorAll(".bill-item").forEach(row => {
+    row.addEventListener("click", () => openBillModal(row.dataset.id));
+  });
 
   document.getElementById("categoryList").innerHTML = (appData.categories || []).length
     ? appData.categories.map(c => {
@@ -414,6 +418,50 @@ function renderSetup() {
   });
 
   document.getElementById("editSavingsGoalRow").addEventListener("click", setCarryoverTarget);
+}
+
+function openBillModal(billId) {
+  const bill = (appData.bills || []).find(b => b.id === billId);
+  if (!bill) return;
+
+  document.getElementById("billEditId").value = bill.id;
+  document.getElementById("billModalTitle").textContent = bill.name;
+  document.getElementById("billModalStatus").textContent = bill.paid ? "Paid" : "Unpaid";
+  document.getElementById("billModalAmount").textContent = money(bill.amount);
+  document.getElementById("toggleBillPaidBtn").textContent = bill.paid ? "Mark Unpaid" : "Mark Paid";
+
+  document.getElementById("billModal").classList.add("open");
+}
+
+function closeBillModal() {
+  document.getElementById("billModal").classList.remove("open");
+}
+
+function toggleBillPaidFromModal() {
+  const billId = document.getElementById("billEditId").value;
+  const bill = (appData.bills || []).find(b => b.id === billId);
+
+  if (!bill) return;
+
+  bill.paid = !bill.paid;
+
+  appData.transactions.push({
+    id: crypto.randomUUID(),
+    label: bill.paid ? `Paid ${bill.name}` : `Unpaid ${bill.name}`,
+    note: bill.paid ? "Bill marked paid" : "Bill marked unpaid",
+    amount: bill.paid ? -Number(bill.amount || 0) : Number(bill.amount || 0),
+    date: new Date().toISOString()
+  });
+
+  if (bill.paid) {
+    appData.currentBalance = Number(appData.currentBalance || 0) - Number(bill.amount || 0);
+  } else {
+    appData.currentBalance = Number(appData.currentBalance || 0) + Number(bill.amount || 0);
+  }
+
+  saveData();
+  renderAll();
+  closeBillModal();
 }
 
 function renderAll() {
@@ -678,6 +726,12 @@ document.getElementById("saveSetupItemBtn").addEventListener("click", saveSetupI
 document.getElementById("deleteSetupItemBtn").addEventListener("click", deleteSetupItemFromModal);
 document.getElementById("setupModal").addEventListener("click", event => {
   if (event.target.id === "setupModal") closeSetupModal();
+});
+
+document.getElementById("closeBillModal").addEventListener("click", closeBillModal);
+document.getElementById("toggleBillPaidBtn").addEventListener("click", toggleBillPaidFromModal);
+document.getElementById("billModal").addEventListener("click", event => {
+  if (event.target.id === "billModal") closeBillModal();
 });
 
 renderAll();
