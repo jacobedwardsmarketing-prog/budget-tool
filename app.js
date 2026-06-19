@@ -739,6 +739,42 @@ function saveIncomeFromModal() {
   closeIncomeModal();
 }
 
+
+function openBillPickerFromMenu() {
+  const bills = (appData.bills || []);
+
+  if (bills.length === 0) {
+    alert("No bills found in the current cycle.");
+    return;
+  }
+
+  const unpaid = bills.filter(b => !b.paid);
+  const billList = unpaid.length ? unpaid : bills;
+
+  if (unpaid.length === 0) {
+    const viewAll = confirm("All bills are already marked paid. View paid bills anyway?");
+    if (!viewAll) return;
+  }
+
+  const options = billList
+    .map((bill, index) => `${index + 1}. ${bill.name} — ${money(bill.amount)} — ${bill.paid ? "Paid" : "Unpaid"}`)
+    .join("\n");
+
+  const selected = prompt(`Which bill?\n\n${options}\n\nEnter the number.`);
+
+  if (selected === null) return;
+
+  const index = Number(selected) - 1;
+  const bill = billList[index];
+
+  if (!bill) {
+    alert("Invalid bill.");
+    return;
+  }
+
+  openBillModal(bill.id);
+}
+
 document.querySelectorAll("#quickMenu button").forEach(btn => {
   btn.addEventListener("click", () => {
     const action = btn.dataset.action;
@@ -754,6 +790,8 @@ document.querySelectorAll("#quickMenu button").forEach(btn => {
         saveData();
         renderAll();
       }
+    } else if (action === "bill") {
+      openBillPickerFromMenu();
     } else if (action === "cycle") {
       startNewCycle();
     } else {
