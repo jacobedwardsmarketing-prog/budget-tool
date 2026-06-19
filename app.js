@@ -366,7 +366,7 @@ function renderTransactions() {
       .map(t => `
         <div class="item">
           <div><strong>${t.label}</strong><small>${t.note || "No note"}</small></div>
-          <div class="amount">${money(t.amount)}</div>
+          <div class="amount ${Number(t.amount || 0) > 0 ? "positive" : ""}">${money(t.amount)}</div>
         </div>
       `).join("")
     : `<div class="item"><div><strong>No transactions yet</strong><small>Start a cycle or spend money later</small></div></div>`;
@@ -663,12 +663,51 @@ document.getElementById("fab").addEventListener("click", () => {
   document.getElementById("quickMenu").classList.toggle("open");
 });
 
+
+function addIncome() {
+  document.getElementById("incomeAmountInput").value = "";
+  document.getElementById("incomeNoteInput").value = "";
+  document.getElementById("incomeModal").classList.add("open");
+  setTimeout(() => document.getElementById("incomeAmountInput").focus(), 80);
+}
+
+function closeIncomeModal() {
+  document.getElementById("incomeModal").classList.remove("open");
+}
+
+function saveIncomeFromModal() {
+  const amount = Number(document.getElementById("incomeAmountInput").value);
+
+  if (Number.isNaN(amount) || amount <= 0) {
+    alert("Enter a valid income amount.");
+    return;
+  }
+
+  const note = document.getElementById("incomeNoteInput").value || "";
+
+  appData.currentBalance = Number(appData.currentBalance || 0) + amount;
+
+  appData.transactions.push({
+    id: crypto.randomUUID(),
+    label: "Income",
+    note: note.trim() || "Income added",
+    amount: amount,
+    date: new Date().toISOString()
+  });
+
+  saveData();
+  renderAll();
+  closeIncomeModal();
+}
+
 document.querySelectorAll("#quickMenu button").forEach(btn => {
   btn.addEventListener("click", () => {
     const action = btn.dataset.action;
 
     if (action === "spend") {
       spendMoney();
+    } else if (action === "income") {
+      addIncome();
     } else if (action === "balance") {
       const value = prompt("Current account balance?", appData.currentBalance);
       if (value !== null && !Number.isNaN(Number(value))) {
@@ -732,6 +771,12 @@ document.getElementById("closeBillModal").addEventListener("click", closeBillMod
 document.getElementById("toggleBillPaidBtn").addEventListener("click", toggleBillPaidFromModal);
 document.getElementById("billModal").addEventListener("click", event => {
   if (event.target.id === "billModal") closeBillModal();
+});
+
+document.getElementById("closeIncomeModal").addEventListener("click", closeIncomeModal);
+document.getElementById("saveIncomeBtn").addEventListener("click", saveIncomeFromModal);
+document.getElementById("incomeModal").addEventListener("click", event => {
+  if (event.target.id === "incomeModal") closeIncomeModal();
 });
 
 renderAll();
