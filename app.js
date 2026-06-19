@@ -64,13 +64,7 @@ function resetData() {
   localStorage.removeItem(STORAGE_KEY);
   appData = cloneDefaultData();
   saveData();
-  document.getElementById("closeDashboardEditModal").addEventListener("click", closeDashboardEditModal);
-document.getElementById("saveDashboardEditBtn").addEventListener("click", saveDashboardEditFromModal);
-document.getElementById("dashboardEditModal").addEventListener("click", event => {
-  if (event.target.id === "dashboardEditModal") closeDashboardEditModal();
-});
-
-renderAll();
+  renderAll();
 }
 
 function ensureRules() {
@@ -1282,6 +1276,12 @@ document.getElementById("closeBillModal").addEventListener("click", closeBillMod
 document.getElementById("toggleBillPaidBtn").addEventListener("click", toggleBillPaidFromModal);
 document.getElementById("billModal").addEventListener("click", event => {
   if (event.target.id === "billModal") closeBillModal();
+});
+
+document.getElementById("closeDashboardEditModal").addEventListener("click", closeDashboardEditModal);
+document.getElementById("saveDashboardEditBtn").addEventListener("click", saveDashboardEditFromModal);
+document.getElementById("dashboardEditModal").addEventListener("click", event => {
+  if (event.target.id === "dashboardEditModal") closeDashboardEditModal();
 });
 
 renderAll();
