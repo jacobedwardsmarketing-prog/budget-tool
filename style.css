@@ -605,3 +605,9 @@ select.field{
   content:" · Tap to edit";
   color:rgba(246,200,95,.78);
 }
+
+
+/* New cycle date input polish */
+input[type="date"].field{
+  color-scheme: dark;
+}
