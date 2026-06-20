@@ -270,8 +270,10 @@ function renderDashboard() {
   safeToSpendEl.classList.add(safe < 0 ? "safe-red" : safe <= 100 ? "safe-yellow" : "safe-green");
   document.getElementById("currentBalance").textContent = money(appData.currentBalance);
 
-  const projectedEnd = safe + Number(appData.cycle?.requiredEndBalance || 0);
-  document.getElementById("expectedEnd").textContent = money(projectedEnd);
+  const unpaidBillsTotal = (appData.bills || [])
+    .filter(b => !b.paid)
+    .reduce((sum, b) => sum + Number(b.amount || 0), 0);
+  document.getElementById("expectedEnd").textContent = money(unpaidBillsTotal);
 
   document.getElementById("billList").innerHTML = (appData.bills || []).length
     ? appData.bills.map(b => `
