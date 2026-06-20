@@ -1593,3 +1593,153 @@ body{
     padding-top:calc(42px + env(safe-area-inset-top));
   }
 }
+
+
+
+/* =========================================================
+   FINAL MOBILE VISUAL TUNE — CSS ONLY
+   Spacing + toolbar alignment + animated premium card borders
+   ========================================================= */
+
+/* Tighten the top without exposing white space */
+.app{
+  padding-top:calc(18px + env(safe-area-inset-top));
+}
+
+@media (max-width:480px){
+  .app{
+    padding-top:calc(20px + env(safe-area-inset-top));
+    padding-bottom:calc(86px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Clean up excess bottom space while keeping the bar flush */
+.bottom-nav{
+  bottom:0;
+  height:calc(66px + env(safe-area-inset-bottom));
+  padding:7px 10px calc(7px + env(safe-area-inset-bottom));
+  align-items:center;
+  border-radius:24px 24px 0 0;
+}
+
+/* Center the nav contents vertically and visually */
+.tab{
+  height:50px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transform:translateY(-1px);
+}
+
+.tab span{
+  line-height:1.05;
+}
+
+/* Keep the center button visually centered in the bar */
+.fab{
+  width:58px;
+  height:58px;
+  margin-top:-8px;
+  transform:translateY(-1px);
+}
+
+.fab:active{
+  transform:translateY(-1px) scale(.95);
+}
+
+/* Slightly reduce panel/card vertical sprawl */
+.panel{
+  margin-bottom:13px;
+}
+
+.item,
+.money-row{
+  padding-top:13px;
+  padding-bottom:13px;
+}
+
+/* Full animated gradient border for the top hero + stat bubbles */
+.hero-card,
+.stat-card{
+  position:relative;
+  isolation:isolate;
+  overflow:hidden;
+  border:1px solid transparent;
+  background-clip:padding-box;
+}
+
+.hero-card::after,
+.stat-card::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  border-radius:inherit;
+  padding:2px;
+  background:conic-gradient(
+    from var(--border-angle, 0deg),
+    rgba(246,200,95,.95),
+    rgba(34,242,143,.85),
+    rgba(73,201,255,.85),
+    rgba(246,200,95,.95)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;
+  mask-composite:exclude;
+  animation:borderSpin 5.5s linear infinite;
+  opacity:.85;
+}
+
+/* Hero border should feel premium, not chunky */
+.hero-card::after{
+  padding:2px;
+}
+
+/* Stat card border slightly thinner */
+.stat-card::after{
+  padding:1.5px;
+  opacity:.78;
+}
+
+@keyframes borderSpin{
+  to{
+    --border-angle:360deg;
+  }
+}
+
+/* Fallback support for animating custom property */
+@property --border-angle{
+  syntax:"<angle>";
+  initial-value:0deg;
+  inherits:false;
+}
+
+/* Remove the old partial accent edge if present, because full border replaces it */
+.hero-card:before{
+  opacity:0;
+}
+
+.stat-card:before{
+  opacity:0;
+}
+
+/* Keep hero/card inner fills clean after border effect */
+.hero-card{
+  background:
+    linear-gradient(145deg,rgba(246,200,95,.10),rgba(34,242,143,.052) 42%,rgba(73,201,255,.045)),
+    linear-gradient(180deg,rgba(14,26,49,.98),rgba(6,14,28,.98));
+}
+
+.stat-card{
+  background:
+    linear-gradient(180deg,rgba(16,31,58,.96),rgba(8,17,34,.96));
+}
+
+@media (prefers-reduced-motion:reduce){
+  .hero-card::after,
+  .stat-card::after{
+    animation:none;
+  }
+}
