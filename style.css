@@ -1944,3 +1944,23 @@ body{
     width:100%;
   }
 }
+
+
+
+/* Final tiny patch — center FAB normally + clean toolbar alignment */
+.fab{
+  margin:0 auto;
+  transform:none;
+}
+
+.fab:active{
+  transform:scale(.95);
+}
+
+.bottom-nav{
+  align-items:center;
+}
+
+.tab{
+  transform:none;
+}
