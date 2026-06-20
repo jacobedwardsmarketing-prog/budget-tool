@@ -938,16 +938,10 @@ function saveDashboardEditFromModal() {
 
     bill.amount = amount;
 
-    const monthlyRule = (appData.rules?.monthlyExpenses || []).find(r => r.id === bill.ruleId);
-    const fixedRule = (appData.rules?.biWeeklyFixed || []).find(r => r.id === bill.ruleId);
-    const rule = monthlyRule || fixedRule;
-
-    if (rule) rule.amount = amount;
-
     appData.transactions.push({
       id: crypto.randomUUID(),
       label: "Adjusted Bill",
-      note: `${bill.name} amount set to ${money(amount)}`,
+      note: `${bill.name} amount set to ${money(amount)} for this cycle only`,
       amount: 0,
       date: new Date().toISOString()
     });
@@ -965,13 +959,10 @@ function saveDashboardEditFromModal() {
     category.remaining = amount;
     category.budget = Math.max(amount, amount + Math.max(0, spent));
 
-    const rule = (appData.rules?.biWeeklyVariable || []).find(r => r.id === category.ruleId);
-    if (rule) rule.amount = category.budget;
-
     appData.transactions.push({
       id: crypto.randomUUID(),
       label: "Adjusted Budget",
-      note: `${category.name} remaining set to ${money(amount)}`,
+      note: `${category.name} remaining set to ${money(amount)} for this cycle only`,
       amount: 0,
       date: new Date().toISOString()
     });
