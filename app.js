@@ -264,7 +264,10 @@ function renderDashboard() {
 
   document.getElementById("statusTitle").textContent = status.title;
   document.querySelector(".hero-card .caption").textContent = status.caption;
-  document.getElementById("safeToSpend").textContent = money(safe);
+  const safeToSpendEl = document.getElementById("safeToSpend");
+  safeToSpendEl.textContent = money(safe);
+  safeToSpendEl.classList.remove("safe-green", "safe-yellow", "safe-red");
+  safeToSpendEl.classList.add(safe < 0 ? "safe-red" : safe <= 100 ? "safe-yellow" : "safe-green");
   document.getElementById("currentBalance").textContent = money(appData.currentBalance);
 
   const projectedEnd = safe + Number(appData.cycle?.requiredEndBalance || 0);
@@ -921,6 +924,8 @@ function openDashboardBillEditModal(billId) {
   document.getElementById("dashboardEditTitle").textContent = bill.name;
   document.getElementById("dashboardEditAmountLabel").textContent = "Bill Amount";
   document.getElementById("dashboardEditAmountInput").value = Number(bill.amount || 0);
+  document.getElementById("markDashboardBillPaidBtn").style.display = "block";
+  document.getElementById("markDashboardBillPaidBtn").textContent = bill.paid ? "Mark Bill Unpaid" : "Mark Bill Paid";
   document.getElementById("dashboardEditModal").classList.add("open");
 }
 
@@ -934,6 +939,7 @@ function openDashboardCategoryEditModal(categoryId) {
   document.getElementById("dashboardEditTitle").textContent = category.name;
   document.getElementById("dashboardEditAmountLabel").textContent = "Remaining Amount";
   document.getElementById("dashboardEditAmountInput").value = Number(category.remaining || 0);
+  document.getElementById("markDashboardBillPaidBtn").style.display = "none";
   document.getElementById("dashboardEditModal").classList.add("open");
 }
 
@@ -994,6 +1000,41 @@ function saveDashboardEditFromModal() {
   renderAll();
   closeDashboardEditModal();
 }
+
+function markDashboardBillPaidFromModal() {
+  const type = document.getElementById("dashboardEditType").value;
+  const id = document.getElementById("dashboardEditId").value;
+
+  if (type !== "bill") return;
+
+  const bill = (appData.bills || []).find(b => b.id === id);
+  if (!bill) {
+    showNotice("Bill Not Found", "This bill could not be found.");
+    return;
+  }
+
+  const amount = Number(bill.amount || 0);
+  bill.paid = !bill.paid;
+
+  if (bill.paid) {
+    appData.currentBalance = Number(appData.currentBalance || 0) - amount;
+  } else {
+    appData.currentBalance = Number(appData.currentBalance || 0) + amount;
+  }
+
+  appData.transactions.push({
+    id: crypto.randomUUID(),
+    label: bill.paid ? `Paid ${bill.name}` : `Unpaid ${bill.name}`,
+    note: bill.paid ? "Bill marked paid" : "Bill marked unpaid",
+    amount: bill.paid ? -amount : amount,
+    date: new Date().toISOString()
+  });
+
+  saveData();
+  renderAll();
+  closeDashboardEditModal();
+}
+
 
 /* Correct Balance */
 function openCorrectBalanceModal() {
@@ -1297,4 +1338,5 @@ document.getElementById("dashboardEditModal").addEventListener("click", event =>
   if (event.target.id === "dashboardEditModal") closeDashboardEditModal();
 });
 
+document.getElementById("markDashboardBillPaidBtn").addEventListener("click", markDashboardBillPaidFromModal);
 renderAll();
