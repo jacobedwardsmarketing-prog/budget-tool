@@ -611,3 +611,42 @@ select.field{
 input[type="date"].field{
   color-scheme: dark;
 }
+
+
+/* Final fix — date input overflow on iPhone */
+.modal-card{
+  overflow:hidden;
+}
+
+#actionModal .field,
+#actionModal input[type="date"].field{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  display:block;
+  box-sizing:border-box;
+}
+
+#actionModalFields{
+  width:100%;
+  min-width:0;
+}
+
+#actionModal input[type="date"].field{
+  appearance:none;
+  -webkit-appearance:none;
+  text-align:left;
+  padding-right:15px;
+  color:white;
+}
+
+@media (max-width:480px){
+  .modal-card{
+    width:100%;
+    max-width:100%;
+  }
+
+  #actionModal .field{
+    font-size:16px;
+  }
+}
