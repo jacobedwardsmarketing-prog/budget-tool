@@ -650,3 +650,30 @@ input[type="date"].field{
     font-size:16px;
   }
 }
+
+
+/* Final surgical patch — bill paid button + dashboard status colors */
+.modal-secondary{
+  width:100%;
+  margin-top:10px;
+  border:none;
+  border-radius:18px;
+  padding:16px;
+  background:rgba(255,255,255,.08);
+  color:white;
+  font-weight:1000;
+  font-size:16px;
+  border:1px solid rgba(255,255,255,.12);
+}
+
+#safeToSpend.safe-green{
+  color:var(--green);
+}
+
+#safeToSpend.safe-yellow{
+  color:var(--gold);
+}
+
+#safeToSpend.safe-red{
+  color:var(--red);
+}
