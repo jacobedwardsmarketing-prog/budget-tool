@@ -1049,3 +1049,455 @@ body{
     width:calc(100% - 18px);
   }
 }
+
+
+
+/* =========================================================
+   PROFESSIONAL VISUAL POLISH — CSS ONLY
+   No JavaScript changes. No HTML changes. No functionality changes.
+   ========================================================= */
+
+:root{
+  --bg:#030713;
+  --bg2:#071121;
+  --panel:rgba(10,20,38,.86);
+  --panel-strong:rgba(13,25,47,.94);
+  --line:rgba(255,255,255,.115);
+  --line-gold:rgba(246,200,95,.26);
+  --text:#f8fafc;
+  --muted:#95a6bd;
+  --gold:#f6c85f;
+  --gold2:#e9a91d;
+  --green:#22f28f;
+  --blue:#49c9ff;
+  --red:#ff3b5c;
+}
+
+/* Better background: still dramatic, but less noisy */
+html,body{
+  background:
+    radial-gradient(circle at 18% -8%,rgba(246,200,95,.18),transparent 34%),
+    radial-gradient(circle at 88% 4%,rgba(73,201,255,.12),transparent 30%),
+    radial-gradient(circle at 50% 115%,rgba(34,242,143,.08),transparent 34%),
+    linear-gradient(180deg,#020611 0%,#081326 48%,#020611 100%);
+}
+
+body:before{
+  opacity:.42;
+}
+
+/* Overall spacing */
+.app{
+  padding-top:20px;
+  padding-left:16px;
+  padding-right:16px;
+}
+
+/* Hero: cleaner premium card */
+.hero-card{
+  border-radius:32px;
+  padding:29px 26px;
+  background:
+    linear-gradient(145deg,rgba(246,200,95,.13),rgba(34,242,143,.065) 42%,rgba(73,201,255,.055)),
+    linear-gradient(180deg,rgba(14,26,49,.98),rgba(6,14,28,.98));
+  border:1px solid rgba(246,200,95,.25);
+  box-shadow:
+    0 30px 80px rgba(0,0,0,.54),
+    0 0 44px rgba(246,200,95,.075),
+    inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+.hero-card:before{
+  height:4px;
+  background:linear-gradient(90deg,var(--gold),var(--green),var(--blue));
+  box-shadow:0 0 20px rgba(246,200,95,.38);
+}
+
+.kicker{
+  font-size:11px;
+  letter-spacing:2px;
+  color:var(--gold);
+  opacity:.96;
+}
+
+h1{
+  letter-spacing:-1.6px;
+  font-weight:1000;
+}
+
+.money-glow{
+  margin-top:22px;
+  margin-bottom:9px;
+  font-size:72px;
+  letter-spacing:-4.2px;
+  line-height:.92;
+}
+
+/* The safe-to-spend glow now visibly matches state */
+#safeToSpend.safe-green{
+  color:var(--green);
+  text-shadow:
+    0 0 18px rgba(34,242,143,.56),
+    0 0 46px rgba(34,242,143,.18);
+}
+
+#safeToSpend.safe-yellow{
+  color:var(--gold);
+  text-shadow:
+    0 0 18px rgba(246,200,95,.58),
+    0 0 46px rgba(246,200,95,.20);
+}
+
+#safeToSpend.safe-red{
+  color:var(--red);
+  text-shadow:
+    0 0 18px rgba(255,59,92,.58),
+    0 0 46px rgba(255,59,92,.19);
+}
+
+/* Dashboard stat cards */
+.grid{
+  gap:12px;
+  margin:17px 0;
+}
+
+.stat-card{
+  border-radius:24px;
+  padding:18px 17px;
+  background:
+    linear-gradient(180deg,rgba(16,31,58,.96),rgba(8,17,34,.96));
+  border:1px solid rgba(255,255,255,.105);
+  box-shadow:
+    0 18px 44px rgba(0,0,0,.34),
+    inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+.stat-card span{
+  font-size:12px;
+  color:var(--muted);
+}
+
+.stat-card strong{
+  margin-top:7px;
+  font-size:27px;
+  letter-spacing:-.8px;
+  color:var(--blue);
+}
+
+/* Panels */
+.panel{
+  border-radius:26px;
+  padding:18px;
+  margin-bottom:15px;
+  background:
+    linear-gradient(180deg,rgba(15,29,54,.94),rgba(7,15,30,.97));
+  border:1px solid rgba(255,255,255,.105);
+  box-shadow:
+    0 18px 46px rgba(0,0,0,.32),
+    inset 0 1px 0 rgba(255,255,255,.055);
+}
+
+.panel-head{
+  align-items:flex-start;
+  gap:12px;
+  margin-bottom:10px;
+}
+
+.panel-head h2{
+  font-size:18px;
+  font-weight:1000;
+  letter-spacing:-.4px;
+}
+
+.panel-head span{
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.25;
+}
+
+/* Rows: more professional touch targets */
+.item,
+.money-row{
+  padding:15px 0;
+  border-top:1px solid rgba(255,255,255,.072);
+}
+
+.item strong{
+  font-weight:950;
+  letter-spacing:-.2px;
+}
+
+.item small{
+  color:var(--muted);
+  font-size:12px;
+  margin-top:4px;
+}
+
+.amount{
+  font-weight:1000;
+  color:var(--gold);
+}
+
+/* Cycle screen */
+.screen-title{
+  border-radius:25px;
+  padding:18px;
+  background:
+    linear-gradient(135deg,rgba(246,200,95,.105),rgba(73,201,255,.055)),
+    rgba(10,20,38,.72);
+  border:1px solid rgba(255,255,255,.10);
+}
+
+.money-row.cycle-math-row{
+  padding:15px 0;
+}
+
+.money-row.cycle-math-row span small{
+  font-size:12px;
+  opacity:.92;
+}
+
+/* Setup action cards */
+.setup-actions{
+  gap:12px;
+}
+
+.setup-action{
+  border-radius:24px;
+  min-height:84px;
+  padding:16px;
+  background:
+    linear-gradient(180deg,rgba(15,29,54,.96),rgba(7,16,31,.98));
+  border:1px solid rgba(255,255,255,.105);
+  box-shadow:
+    0 16px 38px rgba(0,0,0,.30),
+    inset 0 1px 0 rgba(255,255,255,.055);
+}
+
+.setup-action strong{
+  font-size:15px;
+  letter-spacing:-.2px;
+}
+
+.setup-action small{
+  color:var(--muted);
+}
+
+.setup-icon{
+  background:rgba(246,200,95,.12);
+  border-color:rgba(246,200,95,.18);
+}
+
+/* Buttons */
+.gold-btn,
+.modal-primary{
+  border-radius:18px;
+  background:
+    linear-gradient(135deg,#ffe69a 0%,var(--gold) 42%,#e99516 100%);
+  box-shadow:
+    0 12px 30px rgba(0,0,0,.28),
+    0 0 24px rgba(246,200,95,.14),
+    inset 0 1px 1px rgba(255,255,255,.38);
+  font-weight:1000;
+}
+
+.modal-secondary{
+  border-radius:18px;
+  background:rgba(255,255,255,.075);
+  border:1px solid rgba(255,255,255,.12);
+}
+
+.gold-btn:active,
+.modal-primary:active,
+.modal-secondary:active,
+.setup-action:active,
+.quick-menu button:active,
+.choice-button:active{
+  transform:scale(.985);
+}
+
+/* Bottom nav: noticeably cleaner */
+.bottom-nav{
+  height:72px;
+  padding:7px;
+  bottom:calc(12px + env(safe-area-inset-bottom));
+  border-radius:26px;
+  background:
+    linear-gradient(180deg,rgba(9,18,34,.88),rgba(3,7,18,.92));
+  border:1px solid rgba(255,255,255,.105);
+  box-shadow:
+    0 20px 58px rgba(0,0,0,.55),
+    inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+.tab{
+  height:56px;
+  border-radius:18px;
+  color:rgba(203,213,225,.72);
+}
+
+.tab.active{
+  color:var(--gold);
+  background:
+    linear-gradient(180deg,rgba(246,200,95,.13),rgba(246,200,95,.045));
+  box-shadow:inset 0 0 0 1px rgba(246,200,95,.10);
+}
+
+.tab span{
+  font-size:10px;
+}
+
+/* Center money button */
+.fab{
+  width:60px;
+  height:60px;
+  border-radius:20px;
+  margin:0 auto;
+  background:
+    linear-gradient(145deg,#fff1b8 0%,var(--gold) 42%,#b96d00 100%);
+  box-shadow:
+    0 0 28px rgba(246,200,95,.38),
+    0 13px 28px rgba(0,0,0,.46),
+    inset 0 1px 2px rgba(255,255,255,.55),
+    inset 0 -5px 9px rgba(90,48,0,.28);
+}
+
+/* Quick action menu */
+.quick-menu{
+  border-radius:26px;
+  padding:12px;
+  background:
+    linear-gradient(180deg,rgba(14,27,51,.985),rgba(6,14,28,.985));
+  border:1px solid rgba(246,200,95,.20);
+  box-shadow:
+    0 28px 80px rgba(0,0,0,.58),
+    0 0 42px rgba(246,200,95,.08);
+}
+
+.quick-menu button{
+  border-radius:17px;
+  background:
+    linear-gradient(135deg,rgba(246,200,95,.105),rgba(73,201,255,.052));
+  border:1px solid rgba(255,255,255,.075);
+}
+
+/* Modals: more premium, less flat */
+.modal-backdrop{
+  background:rgba(0,0,0,.66);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+
+.modal-card{
+  border-radius:30px;
+  padding:19px;
+  background:
+    linear-gradient(180deg,rgba(15,29,54,.99),rgba(6,14,28,.99));
+  border:1px solid rgba(246,200,95,.20);
+  box-shadow:
+    0 32px 92px rgba(0,0,0,.64),
+    0 0 38px rgba(246,200,95,.075),
+    inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+.modal-head h2{
+  font-weight:1000;
+  letter-spacing:-.45px;
+}
+
+.modal-close{
+  border-radius:15px;
+  background:rgba(255,255,255,.075);
+  border:1px solid rgba(255,255,255,.08);
+}
+
+/* Inputs */
+.field{
+  border-radius:17px;
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.10);
+}
+
+.field:focus{
+  border-color:rgba(246,200,95,.38);
+  box-shadow:
+    0 0 0 3px rgba(246,200,95,.09),
+    inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+.field-label{
+  color:var(--muted);
+  letter-spacing:1.15px;
+}
+
+/* Choice rows */
+.choice-button{
+  border-radius:17px;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.09);
+}
+
+.choice-button.selected{
+  border-color:rgba(246,200,95,.44);
+  background:
+    linear-gradient(135deg,rgba(246,200,95,.15),rgba(73,201,255,.06));
+}
+
+/* One-time expense rows */
+.one-time-expense-block{
+  background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.065);
+  border-radius:18px;
+}
+
+.mini-add-btn{
+  border-radius:12px;
+  background:rgba(246,200,95,.14);
+  border:1px solid rgba(246,200,95,.24);
+}
+
+.one-time-remove{
+  border-radius:12px;
+}
+
+/* Mobile: less cramped */
+@media (max-width:480px){
+  .app{
+    padding-left:14px;
+    padding-right:14px;
+    padding-bottom:112px;
+  }
+
+  .hero-card{
+    padding:25px 22px;
+  }
+
+  h1{
+    font-size:35px;
+  }
+
+  .money-glow{
+    font-size:62px;
+    letter-spacing:-3.8px;
+  }
+
+  .grid{
+    gap:10px;
+  }
+
+  .stat-card{
+    padding:15px;
+  }
+
+  .stat-card strong{
+    font-size:24px;
+  }
+
+  .panel{
+    padding:16px;
+  }
+
+  .bottom-nav{
+    width:calc(100% - 18px);
+  }
+}
