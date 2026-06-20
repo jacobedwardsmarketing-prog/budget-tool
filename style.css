@@ -677,3 +677,17 @@ input[type="date"].field{
 #safeToSpend.safe-red{
   color:var(--red);
 }
+
+
+/* Final surgical patch — match safe-to-spend glow to status color */
+#safeToSpend.safe-green{
+  text-shadow:0 0 22px rgba(34,242,143,.48);
+}
+
+#safeToSpend.safe-yellow{
+  text-shadow:0 0 22px rgba(246,200,95,.48);
+}
+
+#safeToSpend.safe-red{
+  text-shadow:0 0 22px rgba(255,59,92,.48);
+}
