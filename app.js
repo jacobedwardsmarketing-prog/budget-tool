@@ -450,6 +450,48 @@ function getRuleArray(type) {
 }
 
 /* Generic branded action modal */
+
+function addOneTimeExpenseRow(name = "", amount = "") {
+  const list = document.getElementById("oneTimeExpenseList");
+  if (!list) return;
+
+  const row = document.createElement("div");
+  row.className = "one-time-row";
+  row.innerHTML = `
+    <input class="field one-time-name" type="text" placeholder="Expense name" value="${escapeHTML(name)}" />
+    <input class="field one-time-amount" type="number" inputmode="decimal" placeholder="Amount" value="${escapeHTML(amount)}" />
+    <button type="button" class="one-time-remove" aria-label="Remove one-time expense">×</button>
+  `;
+
+  row.querySelector(".one-time-remove").addEventListener("click", () => {
+    row.remove();
+  });
+
+  list.appendChild(row);
+}
+
+function readOneTimeExpenseRows() {
+  const rows = Array.from(document.querySelectorAll("#oneTimeExpenseList .one-time-row"));
+  const expenses = [];
+
+  for (const row of rows) {
+    const name = row.querySelector(".one-time-name").value.trim();
+    const rawAmount = row.querySelector(".one-time-amount").value;
+    const amount = Number(rawAmount);
+
+    if (!name && !rawAmount) continue;
+
+    if (!name || Number.isNaN(amount) || amount <= 0) {
+      showNotice("Invalid One-Time Expense", "Each one-time expense needs a name and valid amount, or delete the row.");
+      return null;
+    }
+
+    expenses.push({ name, amount });
+  }
+
+  return expenses;
+}
+
 function openActionModal(config) {
   actionModalState = {
     config,
@@ -462,7 +504,8 @@ function openActionModal(config) {
   document.getElementById("actionModalCancel").textContent = config.dangerText || "Cancel";
   document.getElementById("actionModalConfirm").textContent = config.confirmText || "Continue";
 
-  document.getElementById("actionModalFields").innerHTML = (config.fields || []).map(field => `
+  const actionFieldsEl = document.getElementById("actionModalFields");
+  actionFieldsEl.innerHTML = (config.fields || []).map(field => `
     <label class="field-label">${escapeHTML(field.label)}</label>
     <input
       id="action-field-${escapeHTML(field.id)}"
@@ -473,6 +516,18 @@ function openActionModal(config) {
       placeholder="${escapeHTML(field.placeholder || "")}"
     />
   `).join("");
+
+  if (config.oneTimeExpenses) {
+    actionFieldsEl.innerHTML += `
+      <div class="one-time-expense-block">
+        <div class="one-time-head">
+          <label class="field-label">One-Time Expenses</label>
+          <button type="button" class="mini-add-btn" id="addOneTimeExpenseBtn">Add One-Time Expense</button>
+        </div>
+        <div id="oneTimeExpenseList"></div>
+      </div>
+    `;
+  }
 
   const choicesWrap = document.getElementById("actionModalChoices");
   choicesWrap.innerHTML = (config.choices || []).map((choice, index) => `
@@ -489,6 +544,11 @@ function openActionModal(config) {
       button.classList.add("selected");
     });
   });
+
+  const addOneTimeBtn = document.getElementById("addOneTimeExpenseBtn");
+  if (addOneTimeBtn) {
+    addOneTimeBtn.addEventListener("click", () => addOneTimeExpenseRow());
+  }
 
   document.getElementById("actionModal").classList.add("open");
 
@@ -510,6 +570,12 @@ function confirmActionModal() {
   (config.fields || []).forEach(field => {
     values[field.id] = document.getElementById(`action-field-${field.id}`).value;
   });
+
+  if (config.oneTimeExpenses) {
+    const oneTimeExpenses = readOneTimeExpenseRows();
+    if (oneTimeExpenses === null) return;
+    values.oneTimeExpenses = oneTimeExpenses;
+  }
 
   const shouldClose = config.onConfirm ? config.onConfirm(values) : true;
 
@@ -553,10 +619,9 @@ function startNewCycle() {
     message: "Enter your account balance and choose the cycle start date. The app will build a 14-day budget from that date.",
     fields: [
       { id: "newCycleBalance", label: "Current Account Balance", type: "number", value: appData.currentBalance || "" },
-      { id: "newCycleStartDate", label: "Cycle Start Date", type: "date", value: todayISODate() },
-      { id: "oneTimeExpenseName", label: "One-Time Expense Name", type: "text", value: "", placeholder: "Optional" },
-      { id: "oneTimeExpenseAmount", label: "One-Time Expense Amount", type: "number", value: "", placeholder: "Optional" }
+      { id: "newCycleStartDate", label: "Cycle Start Date", type: "date", value: todayISODate() }
     ],
+    oneTimeExpenses: true,
     confirmText: "Generate Cycle",
     dangerText: "Cancel",
     onConfirm: values => {
@@ -590,27 +655,19 @@ function startNewCycle() {
       appData.categories = [];
       syncCurrentCycleFromRules();
 
-      const oneTimeName = (values.oneTimeExpenseName || "").trim();
-      const oneTimeAmountRaw = values.oneTimeExpenseAmount;
-      const hasOneTimeAmount = oneTimeAmountRaw !== null && oneTimeAmountRaw !== undefined && String(oneTimeAmountRaw).trim() !== "";
-      const oneTimeAmount = hasOneTimeAmount ? Number(oneTimeAmountRaw) : 0;
+      const oneTimeExpenses = Array.isArray(values.oneTimeExpenses) ? values.oneTimeExpenses : [];
 
-      if ((oneTimeName || hasOneTimeAmount) && (!oneTimeName || Number.isNaN(oneTimeAmount) || oneTimeAmount <= 0)) {
-        showNotice("Invalid One-Time Expense", "Enter both a valid one-time expense name and amount, or leave both fields blank.");
-        return false;
-      }
-
-      if (oneTimeName && oneTimeAmount > 0) {
+      oneTimeExpenses.forEach(expense => {
         appData.bills.push({
           id: crypto.randomUUID(),
           ruleId: null,
           type: "oneTime",
-          name: oneTimeName,
+          name: expense.name,
           date: "This cycle",
-          amount: oneTimeAmount,
+          amount: expense.amount,
           paid: false
         });
-      }
+      });
 
       appData.transactions = [{
         id: crypto.randomUUID(),
