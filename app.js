@@ -526,27 +526,49 @@ function showNotice(title, message) {
   });
 }
 
+
+function todayISODate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function dateFromISOInput(value) {
+  if (!value) return null;
+  const parts = value.split("-").map(Number);
+  if (parts.length !== 3) return null;
+
+  const [year, month, day] = parts;
+  if (!year || !month || !day) return null;
+
+  return new Date(year, month - 1, day);
+}
+
 /* New Cycle */
 function startNewCycle() {
   openActionModal({
     kicker: "New Cycle",
     title: "Start New Cycle",
-    message: "Enter your actual account balance. The app will generate a fresh 14-day cycle from your setup rules.",
+    message: "Enter your account balance and choose the cycle start date. The app will build a 14-day budget from that date.",
     fields: [
-      { id: "newCycleBalance", label: "Current Account Balance", type: "number", value: appData.currentBalance || "" }
+      { id: "newCycleBalance", label: "Current Account Balance", type: "number", value: appData.currentBalance || "" },
+      { id: "newCycleStartDate", label: "Cycle Start Date", type: "date", value: todayISODate() }
     ],
     confirmText: "Generate Cycle",
     dangerText: "Cancel",
     onConfirm: values => {
       const balance = Number(values.newCycleBalance);
+      const start = dateFromISOInput(values.newCycleStartDate);
 
       if (Number.isNaN(balance)) {
         showNotice("Invalid Amount", "Enter a valid account balance.");
         return false;
       }
 
-      const start = new Date();
-      const end = new Date();
+      if (!start || Number.isNaN(start.getTime())) {
+        showNotice("Invalid Date", "Choose a valid cycle start date.");
+        return false;
+      }
+
+      const end = new Date(start);
       end.setDate(start.getDate() + 14);
 
       appData.currentBalance = balance;
@@ -566,7 +588,7 @@ function startNewCycle() {
       appData.transactions = [{
         id: crypto.randomUUID(),
         label: "New Cycle",
-        note: `Started with ${money(balance)}`,
+        note: `Started ${formatDate(start)} with ${money(balance)}`,
         amount: 0,
         date: new Date().toISOString()
       }];
