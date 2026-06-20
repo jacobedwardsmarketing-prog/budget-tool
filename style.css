@@ -1,4 +1,4 @@
-
+ 
 *{box-sizing:border-box}
 :root{
 --bg:#030712;--ink:#f8fafc;--muted:#8fa0b8;--soft:#cbd5e1;
@@ -1499,5 +1499,65 @@ h1{
 
   .bottom-nav{
     width:calc(100% - 18px);
+  }
+}
+
+
+
+/* =========================================================
+   iPhone safe-area + flush bottom toolbar patch — CSS ONLY
+   ========================================================= */
+
+/* Prevent top UI from getting clipped by Dynamic Island / notch */
+.app{
+  padding-top:calc(22px + env(safe-area-inset-top));
+}
+
+/* Keep content from hiding behind the flush toolbar */
+body{
+  padding-bottom:env(safe-area-inset-bottom);
+}
+
+.app{
+  padding-bottom:calc(96px + env(safe-area-inset-bottom));
+}
+
+/* Bottom toolbar: flush with screen bottom, cleaner shape */
+.bottom-nav{
+  bottom:0;
+  width:100%;
+  max-width:760px;
+  height:calc(76px + env(safe-area-inset-bottom));
+  padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+  border-radius:28px 28px 0 0;
+  border-left:none;
+  border-right:none;
+  border-bottom:none;
+  background:
+    linear-gradient(180deg,rgba(10,20,38,.94),rgba(3,7,18,.98));
+  box-shadow:
+    0 -14px 42px rgba(0,0,0,.42),
+    inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+/* Make the center button sit nicely inside the new flush bar */
+.fab{
+  margin-top:-10px;
+}
+
+/* Slightly tighter tabs so the taller safe-area bar looks intentional */
+.tab{
+  height:54px;
+}
+
+@media (max-width:480px){
+  .app{
+    padding-top:calc(24px + env(safe-area-inset-top));
+    padding-bottom:calc(104px + env(safe-area-inset-bottom));
+  }
+
+  .bottom-nav{
+    width:100%;
+    border-radius:26px 26px 0 0;
   }
 }
