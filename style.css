@@ -1926,3 +1926,21 @@ body{
     font-size:10px;
   }
 }
+
+
+
+/* Final tiny patch — full-width toolbar */
+.bottom-nav{
+  left:0;
+  right:0;
+  transform:none;
+  width:100%;
+  max-width:none;
+  border-radius:24px 24px 0 0;
+}
+
+@media (max-width:390px){
+  .bottom-nav{
+    width:100%;
+  }
+}
