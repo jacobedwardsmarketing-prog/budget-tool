@@ -553,7 +553,9 @@ function startNewCycle() {
     message: "Enter your account balance and choose the cycle start date. The app will build a 14-day budget from that date.",
     fields: [
       { id: "newCycleBalance", label: "Current Account Balance", type: "number", value: appData.currentBalance || "" },
-      { id: "newCycleStartDate", label: "Cycle Start Date", type: "date", value: todayISODate() }
+      { id: "newCycleStartDate", label: "Cycle Start Date", type: "date", value: todayISODate() },
+      { id: "oneTimeExpenseName", label: "One-Time Expense Name", type: "text", value: "", placeholder: "Optional" },
+      { id: "oneTimeExpenseAmount", label: "One-Time Expense Amount", type: "number", value: "", placeholder: "Optional" }
     ],
     confirmText: "Generate Cycle",
     dangerText: "Cancel",
@@ -587,6 +589,28 @@ function startNewCycle() {
       appData.bills = [];
       appData.categories = [];
       syncCurrentCycleFromRules();
+
+      const oneTimeName = (values.oneTimeExpenseName || "").trim();
+      const oneTimeAmountRaw = values.oneTimeExpenseAmount;
+      const hasOneTimeAmount = oneTimeAmountRaw !== null && oneTimeAmountRaw !== undefined && String(oneTimeAmountRaw).trim() !== "";
+      const oneTimeAmount = hasOneTimeAmount ? Number(oneTimeAmountRaw) : 0;
+
+      if ((oneTimeName || hasOneTimeAmount) && (!oneTimeName || Number.isNaN(oneTimeAmount) || oneTimeAmount <= 0)) {
+        showNotice("Invalid One-Time Expense", "Enter both a valid one-time expense name and amount, or leave both fields blank.");
+        return false;
+      }
+
+      if (oneTimeName && oneTimeAmount > 0) {
+        appData.bills.push({
+          id: crypto.randomUUID(),
+          ruleId: null,
+          type: "oneTime",
+          name: oneTimeName,
+          date: "This cycle",
+          amount: oneTimeAmount,
+          paid: false
+        });
+      }
 
       appData.transactions = [{
         id: crypto.randomUUID(),
