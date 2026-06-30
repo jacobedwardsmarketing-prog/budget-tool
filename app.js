@@ -95,7 +95,7 @@ function calculateSafeToSpend() {
     .reduce((sum, b) => sum + Number(b.amount || 0), 0);
 
   const remainingCategoriesTotal = (appData.categories || [])
-    .reduce((sum, c) => sum + Number(c.remaining || 0), 0);
+    .reduce((sum, c) => sum + Math.max(0, Number(c.remaining || 0)), 0);
 
   const savingsGoal = Number(appData.cycle?.requiredEndBalance || 0);
 
@@ -311,7 +311,7 @@ function renderCycle() {
     .reduce((sum, b) => sum + Number(b.amount || 0), 0);
 
   const remainingBudgetsTotal = (appData.categories || [])
-    .reduce((sum, c) => sum + Number(c.remaining || 0), 0);
+    .reduce((sum, c) => sum + Math.max(0, Number(c.remaining || 0)), 0);
 
   const savingsGoal = Number(appData.cycle?.requiredEndBalance || 0);
   const currentBalance = Number(appData.currentBalance || 0);
